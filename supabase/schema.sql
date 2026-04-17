@@ -1,19 +1,42 @@
 create extension if not exists pgcrypto;
 
--- enums
-create type public.app_role as enum ('buyer', 'seller', 'broker_admin', 'connected_agent');
-create type public.property_status as enum ('draft', 'pending_review', 'active', 'under_contract', 'sold', 'expired', 'archived');
-create type public.property_tier as enum ('diy', 'mls_protected', 'premium_full_service');
-create type public.listing_term_status as enum ('draft', 'active', 'expiring', 'expired', 'renewed', 'cancelled', 'closed');
-create type public.lead_status as enum ('new', 'contacted', 'showing_scheduled', 'offer_discussion', 'under_contract', 'closed', 'archived');
-create type public.boardroom_stage as enum ('inquiry', 'contacted', 'showing', 'offer', 'under_contract', 'closed');
-create type public.agent_connection_status as enum ('requested', 'approved', 'revoked');
-create type public.credit_rule as enum ('always_creditable', 'premium_only_creditable', 'never_creditable');
-create type public.approval_status as enum ('pending', 'approved', 'rejected');
-create type public.campaign_status as enum ('available', 'pending_approval', 'scheduled', 'active', 'paused', 'completed', 'cancelled');
+-- enums (idempotent creation)
+do $$ 
+begin
+  if not exists (select 1 from pg_type where typname = 'app_role') then
+    create type public.app_role as enum ('buyer', 'seller', 'broker_admin', 'connected_agent');
+  end if;
+  if not exists (select 1 from pg_type where typname = 'property_status') then
+    create type public.property_status as enum ('draft', 'pending_review', 'active', 'under_contract', 'sold', 'expired', 'archived');
+  end if;
+  if not exists (select 1 from pg_type where typname = 'property_tier') then
+    create type public.property_tier as enum ('diy', 'mls_protected', 'premium_full_service');
+  end if;
+  if not exists (select 1 from pg_type where typname = 'listing_term_status') then
+    create type public.listing_term_status as enum ('draft', 'active', 'expiring', 'expired', 'renewed', 'cancelled', 'closed');
+  end if;
+  if not exists (select 1 from pg_type where typname = 'lead_status') then
+    create type public.lead_status as enum ('new', 'contacted', 'showing_scheduled', 'offer_discussion', 'under_contract', 'closed', 'archived');
+  end if;
+  if not exists (select 1 from pg_type where typname = 'boardroom_stage') then
+    create type public.boardroom_stage as enum ('inquiry', 'contacted', 'showing', 'offer', 'under_contract', 'closed');
+  end if;
+  if not exists (select 1 from pg_type where typname = 'agent_connection_status') then
+    create type public.agent_connection_status as enum ('requested', 'approved', 'revoked');
+  end if;
+  if not exists (select 1 from pg_type where typname = 'credit_rule') then
+    create type public.credit_rule as enum ('always_creditable', 'premium_only_creditable', 'never_creditable');
+  end if;
+  if not exists (select 1 from pg_type where typname = 'approval_status') then
+    create type public.approval_status as enum ('pending', 'approved', 'rejected');
+  end if;
+  if not exists (select 1 from pg_type where typname = 'campaign_status') then
+    create type public.campaign_status as enum ('available', 'pending_approval', 'scheduled', 'active', 'paused', 'completed', 'cancelled');
+  end if;
+end $$;
 
 -- profiles
-create table public.profiles (
+create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   role public.app_role not null default 'buyer',
   full_name text,
@@ -24,7 +47,7 @@ create table public.profiles (
 );
 
 -- properties
-create table public.properties (
+create table if not exists public.properties (
   id uuid primary key default gen_random_uuid(),
   owner_user_id uuid not null references public.profiles(id) on delete restrict,
   assigned_broker_user_id uuid references public.profiles(id) on delete set null,
@@ -62,12 +85,12 @@ create table public.properties (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
-create index properties_owner_idx on public.properties(owner_user_id);
-create index properties_slug_idx on public.properties(slug);
-create index properties_status_idx on public.properties(status);
+create index if not exists properties_owner_idx on public.properties(owner_user_id);
+create index if not exists properties_slug_idx on public.properties(slug);
+create index if not exists properties_status_idx on public.properties(status);
 
 -- service catalog and selections
-create table public.service_catalog (
+create table if not exists public.service_catalog (
   code text primary key,
   label text not null,
   description text,
@@ -96,9 +119,18 @@ values
 ('drone','Drone Service','Drone photography and footage.', 'flat', 25000, null, 'premium_only_creditable', array['mls_protected','premium_full_service']::public.property_tier[], false),
 ('photos','Professional Images','Professional listing photography.', 'flat', 50000, null, 'premium_only_creditable', array['mls_protected','premium_full_service']::public.property_tier[], false),
 ('open_house','Open House','Open house coordination and promotion.', 'informational', null, null, 'premium_only_creditable', array['premium_full_service']::public.property_tier[], false),
-('ad_campaign_quarter','Quarterly Ad Campaign','Up to $250 ad campaign allocation for each 3-month term.', 'flat', 25000, null, 'never_creditable', array['mls_protected','premium_full_service']::public.property_tier[], false);
+('ad_campaign_quarter','Quarterly Ad Campaign','Up to $250 ad campaign allocation for each 3-month term.', 'flat', 25000, null, 'never_creditable', array['mls_protected','premium_full_service']::public.property_tier[], false)
+on conflict (code) do update set
+  label = excluded.label,
+  description = excluded.description,
+  fee_type = excluded.fee_type,
+  default_amount_cents = excluded.default_amount_cents,
+  default_percent = excluded.default_percent,
+  credit_rule = excluded.credit_rule,
+  available_in_tiers = excluded.available_in_tiers,
+  is_core_service = excluded.is_core_service;
 
-create table public.property_service_selections (
+create table if not exists public.property_service_selections (
   id uuid primary key default gen_random_uuid(),
   property_id uuid not null references public.properties(id) on delete cascade,
   service_code text not null references public.service_catalog(code) on delete restrict,
@@ -110,10 +142,10 @@ create table public.property_service_selections (
   updated_at timestamptz not null default now(),
   unique (property_id, service_code)
 );
-create index property_service_selections_property_idx on public.property_service_selections(property_id);
+create index if not exists property_service_selections_property_idx on public.property_service_selections(property_id);
 
 -- listing terms and renewals
-create table public.listing_terms (
+create table if not exists public.listing_terms (
   id uuid primary key default gen_random_uuid(),
   property_id uuid not null references public.properties(id) on delete cascade,
   tier public.property_tier not null,
@@ -128,9 +160,9 @@ create table public.listing_terms (
   updated_at timestamptz not null default now(),
   check (end_date = start_date + interval '3 months' - interval '1 day')
 );
-create index listing_terms_property_idx on public.listing_terms(property_id, start_date desc);
+create index if not exists listing_terms_property_idx on public.listing_terms(property_id, start_date desc);
 
-create table public.listing_renewals (
+create table if not exists public.listing_renewals (
   id uuid primary key default gen_random_uuid(),
   property_id uuid not null references public.properties(id) on delete cascade,
   prior_term_id uuid references public.listing_terms(id) on delete set null,
@@ -141,7 +173,7 @@ create table public.listing_renewals (
 );
 
 -- boardroom seller controls
-create table public.boardroom_preferences (
+create table if not exists public.boardroom_preferences (
   property_id uuid primary key references public.properties(id) on delete cascade,
   seller_managed_showings boolean not null default true,
   showing_notice_hours integer not null default 4,
@@ -155,7 +187,7 @@ create table public.boardroom_preferences (
   updated_at timestamptz not null default now()
 );
 
-create table public.property_media (
+create table if not exists public.property_media (
   id uuid primary key default gen_random_uuid(),
   property_id uuid not null references public.properties(id) on delete cascade,
   storage_path text,
@@ -165,9 +197,9 @@ create table public.property_media (
   sort_order integer not null default 0,
   created_at timestamptz not null default now()
 );
-create index property_media_property_idx on public.property_media(property_id, sort_order);
+create index if not exists property_media_property_idx on public.property_media(property_id, sort_order);
 
-create table public.property_content_blocks (
+create table if not exists public.property_content_blocks (
   id uuid primary key default gen_random_uuid(),
   property_id uuid not null references public.properties(id) on delete cascade,
   block_type text not null,
@@ -177,9 +209,9 @@ create table public.property_content_blocks (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
-create index property_blocks_property_idx on public.property_content_blocks(property_id, sort_order);
+create index if not exists property_blocks_property_idx on public.property_content_blocks(property_id, sort_order);
 
-create table public.property_metrics_daily (
+create table if not exists public.property_metrics_daily (
   id uuid primary key default gen_random_uuid(),
   property_id uuid not null references public.properties(id) on delete cascade,
   metric_date date not null,
@@ -190,7 +222,7 @@ create table public.property_metrics_daily (
   unique (property_id, metric_date)
 );
 
-create table public.leads (
+create table if not exists public.leads (
   id uuid primary key default gen_random_uuid(),
   property_id uuid not null references public.properties(id) on delete cascade,
   submitted_by_user_id uuid references public.profiles(id) on delete set null,
@@ -206,9 +238,9 @@ create table public.leads (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
-create index leads_property_idx on public.leads(property_id, status);
+create index if not exists leads_property_idx on public.leads(property_id, status);
 
-create table public.boardroom_pipeline (
+create table if not exists public.boardroom_pipeline (
   id uuid primary key default gen_random_uuid(),
   property_id uuid not null references public.properties(id) on delete cascade,
   lead_id uuid references public.leads(id) on delete set null,
@@ -218,7 +250,7 @@ create table public.boardroom_pipeline (
   created_at timestamptz not null default now()
 );
 
-create table public.ai_content_assets (
+create table if not exists public.ai_content_assets (
   id uuid primary key default gen_random_uuid(),
   property_id uuid not null references public.properties(id) on delete cascade,
   asset_type text not null check (asset_type in ('headline', 'description_short', 'description_long', 'social_post', 'flyer_copy', 'community_summary', 'mortgage_blurb', 'ad_copy')),
@@ -229,7 +261,7 @@ create table public.ai_content_assets (
   created_at timestamptz not null default now()
 );
 
-create table public.mortgage_scenarios (
+create table if not exists public.mortgage_scenarios (
   id uuid primary key default gen_random_uuid(),
   property_id uuid not null references public.properties(id) on delete cascade,
   down_payment_percent numeric(5,2) not null,
@@ -240,7 +272,7 @@ create table public.mortgage_scenarios (
   created_at timestamptz not null default now()
 );
 
-create table public.community_points_of_interest (
+create table if not exists public.community_points_of_interest (
   id uuid primary key default gen_random_uuid(),
   property_id uuid not null references public.properties(id) on delete cascade,
   poi_type text not null,
@@ -251,7 +283,7 @@ create table public.community_points_of_interest (
 );
 
 -- payments and credits
-create table public.property_payment_ledger (
+create table if not exists public.property_payment_ledger (
   id uuid primary key default gen_random_uuid(),
   property_id uuid not null references public.properties(id) on delete cascade,
   listing_term_id uuid references public.listing_terms(id) on delete set null,
@@ -261,9 +293,9 @@ create table public.property_payment_ledger (
   notes text,
   created_at timestamptz not null default now()
 );
-create index property_payment_ledger_property_idx on public.property_payment_ledger(property_id, created_at desc);
+create index if not exists property_payment_ledger_property_idx on public.property_payment_ledger(property_id, created_at desc);
 
-create view public.property_credit_summary as
+create or replace view public.property_credit_summary as
 select
   p.id as property_id,
   coalesce(sum(case when l.credit_rule = 'always_creditable' then l.amount_cents else 0 end), 0) as total_always_creditable_cents,
@@ -274,7 +306,7 @@ left join public.property_payment_ledger l on l.property_id = p.id
 group by p.id;
 
 -- approvals and campaigns
-create table public.marketing_approvals (
+create table if not exists public.marketing_approvals (
   id uuid primary key default gen_random_uuid(),
   property_id uuid not null references public.properties(id) on delete cascade,
   item_type text not null check (item_type in ('headline', 'description', 'social_post', 'ad_campaign', 'open_house', 'photo_order', 'site_publish')),
@@ -286,7 +318,7 @@ create table public.marketing_approvals (
   created_at timestamptz not null default now()
 );
 
-create table public.ad_campaign_allocations (
+create table if not exists public.ad_campaign_allocations (
   id uuid primary key default gen_random_uuid(),
   property_id uuid not null references public.properties(id) on delete cascade,
   listing_term_id uuid not null references public.listing_terms(id) on delete cascade,
@@ -297,9 +329,9 @@ create table public.ad_campaign_allocations (
   updated_at timestamptz not null default now(),
   check (spent_amount_cents <= allocated_amount_cents)
 );
-create index ad_campaign_allocations_term_idx on public.ad_campaign_allocations(listing_term_id);
+create index if not exists ad_campaign_allocations_term_idx on public.ad_campaign_allocations(listing_term_id);
 
-create table public.ad_campaigns (
+create table if not exists public.ad_campaigns (
   id uuid primary key default gen_random_uuid(),
   property_id uuid not null references public.properties(id) on delete cascade,
   listing_term_id uuid not null references public.listing_terms(id) on delete cascade,
@@ -319,7 +351,7 @@ create table public.ad_campaigns (
 );
 
 -- future connected-agent groundwork
-create table public.connected_agents (
+create table if not exists public.connected_agents (
   id uuid primary key default gen_random_uuid(),
   owner_user_id uuid references public.profiles(id) on delete set null,
   display_name text not null,
@@ -330,7 +362,7 @@ create table public.connected_agents (
   created_at timestamptz not null default now()
 );
 
-create table public.agent_permissions (
+create table if not exists public.agent_permissions (
   id uuid primary key default gen_random_uuid(),
   connected_agent_id uuid not null references public.connected_agents(id) on delete cascade,
   property_id uuid references public.properties(id) on delete cascade,
@@ -341,7 +373,7 @@ create table public.agent_permissions (
   created_at timestamptz not null default now()
 );
 
-create table public.agent_activity_logs (
+create table if not exists public.agent_activity_logs (
   id uuid primary key default gen_random_uuid(),
   connected_agent_id uuid not null references public.connected_agents(id) on delete cascade,
   property_id uuid references public.properties(id) on delete cascade,
@@ -351,7 +383,7 @@ create table public.agent_activity_logs (
   created_at timestamptz not null default now()
 );
 
-create table public.public_property_feeds (
+create table if not exists public.public_property_feeds (
   property_id uuid primary key references public.properties(id) on delete cascade,
   schema_version text not null default 'v1',
   public_json jsonb not null default '{}'::jsonb,
@@ -397,6 +429,8 @@ begin
 end;
 $$;
 
+-- Drop trigger if exists before creating it
+drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
 after insert on auth.users
 for each row execute procedure public.handle_new_user();
