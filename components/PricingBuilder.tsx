@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { calculatePricing, Selection, Tier } from '@/lib/pricing';
+import { calculatePricing, PricingSelection, Tier } from '@/lib/pricing';
 
 function TierCard({
   tier,
@@ -32,7 +32,7 @@ function TierCard({
 }
 
 export default function PricingBuilder({ propertyId = 'demo-property-id' }: { propertyId?: string }) {
-  const [selection, setSelection] = useState<Selection>({
+  const [selection, setSelection] = useState<PricingSelection>({
     tier: 'diy',
     buyerAgencyPercent: 0,
     sellerHandlesShowings: true,

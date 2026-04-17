@@ -1,4 +1,4 @@
-import { Selection, calculatePricing } from '@/lib/pricing';
+import { PricingSelection, calculatePricing } from '@/lib/pricing';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
 
 const TODAY = () => new Date();
@@ -14,7 +14,7 @@ function addMonthsMinusDay(start: Date, months: number) {
   return end;
 }
 
-function selectedServiceRows(selection: Selection) {
+function selectedServiceRows(selection: PricingSelection) {
   const rows: Array<{ service_code: string; selected: boolean; amount_cents: number | null; percent_value: number | null; metadata?: Record<string, unknown> }> = [];
 
   if (selection.tier === 'diy') {
@@ -46,7 +46,7 @@ function selectedServiceRows(selection: Selection) {
   return rows;
 }
 
-export async function savePropertyStrategy(propertyId: string, selection: Selection) {
+export async function savePropertyStrategy(propertyId: string, selection: PricingSelection) {
   const supabase = getSupabaseAdmin();
   const pricing = calculatePricing(selection);
 

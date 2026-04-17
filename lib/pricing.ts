@@ -1,6 +1,6 @@
 export type Tier = 'diy' | 'mls_protected' | 'premium_full_service';
 
-export type Selection = {
+export type PricingSelection = {
   tier: Tier;
   buyerAgencyPercent: number;
   sellerHandlesShowings: boolean;
@@ -38,7 +38,7 @@ const ADD_ONS = {
   photos: 50000,
 } as const;
 
-export function calculatePricing(selection: Selection): PricingPreview {
+export function calculatePricing(selection: PricingSelection): PricingPreview {
   let upfrontNowCents = 0;
   let commissionPercent = 0;
   let alwaysCredit = 0;
