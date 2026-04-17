@@ -3,34 +3,34 @@ create extension if not exists pgcrypto;
 -- enums (idempotent creation)
 do $$ 
 begin
-  if not exists (select 1 from pg_type where typname = 'app_role') then
+  if not exists (select 1 from pg_type t join pg_namespace n on n.oid = t.typnamespace where t.typname = 'app_role' and n.nspname = 'public') then
     create type public.app_role as enum ('buyer', 'seller', 'broker_admin', 'connected_agent');
   end if;
-  if not exists (select 1 from pg_type where typname = 'property_status') then
+  if not exists (select 1 from pg_type t join pg_namespace n on n.oid = t.typnamespace where t.typname = 'property_status' and n.nspname = 'public') then
     create type public.property_status as enum ('draft', 'pending_review', 'active', 'under_contract', 'sold', 'expired', 'archived');
   end if;
-  if not exists (select 1 from pg_type where typname = 'property_tier') then
+  if not exists (select 1 from pg_type t join pg_namespace n on n.oid = t.typnamespace where t.typname = 'property_tier' and n.nspname = 'public') then
     create type public.property_tier as enum ('diy', 'mls_protected', 'premium_full_service');
   end if;
-  if not exists (select 1 from pg_type where typname = 'listing_term_status') then
+  if not exists (select 1 from pg_type t join pg_namespace n on n.oid = t.typnamespace where t.typname = 'listing_term_status' and n.nspname = 'public') then
     create type public.listing_term_status as enum ('draft', 'active', 'expiring', 'expired', 'renewed', 'cancelled', 'closed');
   end if;
-  if not exists (select 1 from pg_type where typname = 'lead_status') then
+  if not exists (select 1 from pg_type t join pg_namespace n on n.oid = t.typnamespace where t.typname = 'lead_status' and n.nspname = 'public') then
     create type public.lead_status as enum ('new', 'contacted', 'showing_scheduled', 'offer_discussion', 'under_contract', 'closed', 'archived');
   end if;
-  if not exists (select 1 from pg_type where typname = 'boardroom_stage') then
+  if not exists (select 1 from pg_type t join pg_namespace n on n.oid = t.typnamespace where t.typname = 'boardroom_stage' and n.nspname = 'public') then
     create type public.boardroom_stage as enum ('inquiry', 'contacted', 'showing', 'offer', 'under_contract', 'closed');
   end if;
-  if not exists (select 1 from pg_type where typname = 'agent_connection_status') then
+  if not exists (select 1 from pg_type t join pg_namespace n on n.oid = t.typnamespace where t.typname = 'agent_connection_status' and n.nspname = 'public') then
     create type public.agent_connection_status as enum ('requested', 'approved', 'revoked');
   end if;
-  if not exists (select 1 from pg_type where typname = 'credit_rule') then
+  if not exists (select 1 from pg_type t join pg_namespace n on n.oid = t.typnamespace where t.typname = 'credit_rule' and n.nspname = 'public') then
     create type public.credit_rule as enum ('always_creditable', 'premium_only_creditable', 'never_creditable');
   end if;
-  if not exists (select 1 from pg_type where typname = 'approval_status') then
+  if not exists (select 1 from pg_type t join pg_namespace n on n.oid = t.typnamespace where t.typname = 'approval_status' and n.nspname = 'public') then
     create type public.approval_status as enum ('pending', 'approved', 'rejected');
   end if;
-  if not exists (select 1 from pg_type where typname = 'campaign_status') then
+  if not exists (select 1 from pg_type t join pg_namespace n on n.oid = t.typnamespace where t.typname = 'campaign_status' and n.nspname = 'public') then
     create type public.campaign_status as enum ('available', 'pending_approval', 'scheduled', 'active', 'paused', 'completed', 'cancelled');
   end if;
 end $$;
