@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 
 export default function BoardroomControls({ propertyId }: { propertyId: string }) {
   const [prefs, setPrefs] = useState({
@@ -18,9 +19,15 @@ export default function BoardroomControls({ propertyId }: { propertyId: string }
 
   async function savePreferences() {
     setMessage('Saving seller controls...');
+    const supabase = getSupabaseBrowser();
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData.session?.access_token ?? null;
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (accessToken) headers.authorization = `Bearer ${accessToken}`;
+
     const response = await fetch('/api/boardroom/save-preferences', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ propertyId, preferences: prefs }),
     });
     const data = await response.json();
@@ -29,9 +36,15 @@ export default function BoardroomControls({ propertyId }: { propertyId: string }
 
   async function renewTerm() {
     setRenewalMessage('Extending listing term...');
+    const supabase = getSupabaseBrowser();
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData.session?.access_token ?? null;
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (accessToken) headers.authorization = `Bearer ${accessToken}`;
+
     const response = await fetch('/api/boardroom/renew-term', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ propertyId }),
     });
     const data = await response.json();

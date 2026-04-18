@@ -46,7 +46,7 @@ function selectedServiceRows(selection: PricingSelection) {
   return rows;
 }
 
-export async function savePropertyStrategy(propertyId: string, selection: PricingSelection) {
+export async function savePropertyStrategy(propertyId: string, selection: PricingSelection, userId?: string) {
   const supabase = getSupabaseAdmin();
   const pricing = calculatePricing(selection);
 
@@ -86,6 +86,7 @@ export async function savePropertyStrategy(propertyId: string, selection: Pricin
       dual_agency_allowed: selection.dualAgencyEnabled,
       buyer_agency_percent: selection.buyerAgencyPercent,
       open_house_allowed: selection.tier === 'premium_full_service',
+      last_updated_by_user_id: userId ?? null,
       updated_at: new Date().toISOString(),
     });
   if (prefsError) throw prefsError;
@@ -137,6 +138,7 @@ export async function savePropertyStrategy(propertyId: string, selection: Pricin
           end_date: toISODate(endDate),
           status: 'active',
           ad_campaign_allocation_cents: 25000,
+          created_by_user_id: userId ?? null,
         })
         .select('id')
         .single();
@@ -170,7 +172,7 @@ export async function saveBoardroomPreferences(propertyId: string, payload: {
   openHouseAllowed: boolean;
   listingPauseRequested: boolean;
   allowPublicOpenHouseDisplay: boolean;
-}) {
+}, userId?: string) {
   const supabase = getSupabaseAdmin();
   const { error } = await supabase.from('boardroom_preferences').upsert({
     property_id: propertyId,
@@ -182,13 +184,14 @@ export async function saveBoardroomPreferences(propertyId: string, payload: {
     open_house_allowed: payload.openHouseAllowed,
     listing_pause_requested: payload.listingPauseRequested,
     allow_public_open_house_display: payload.allowPublicOpenHouseDisplay,
+    last_updated_by_user_id: userId ?? null,
     updated_at: new Date().toISOString(),
   });
   if (error) throw error;
   return { ok: true };
 }
 
-export async function renewListingTerm(propertyId: string) {
+export async function renewListingTerm(propertyId: string, userId?: string) {
   const supabase = getSupabaseAdmin();
   const { data: priorTerm, error: priorTermError } = await supabase
     .from('listing_terms')
@@ -214,6 +217,7 @@ export async function renewListingTerm(propertyId: string) {
       end_date: toISODate(endDate),
       status: 'active',
       ad_campaign_allocation_cents: 25000,
+      created_by_user_id: userId ?? null,
     })
     .select('id, start_date, end_date, term_number')
     .single();
@@ -223,6 +227,7 @@ export async function renewListingTerm(propertyId: string) {
     property_id: propertyId,
     prior_term_id: priorTerm.id,
     new_term_id: newTerm.id,
+    requested_by_user_id: userId ?? null,
   });
   if (renewalError) throw renewalError;
 

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { calculatePricing, PricingSelection, Tier } from '@/lib/pricing';
+import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 
 function TierCard({
   tier,
@@ -58,9 +59,15 @@ export default function PricingBuilder({ propertyId = 'demo-property-id' }: { pr
     try {
       setSaveState('saving');
       setSaveMessage('Saving strategy...');
+      const supabase = getSupabaseBrowser();
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token ?? null;
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (accessToken) headers.authorization = `Bearer ${accessToken}`;
+
       const response = await fetch('/api/boardroom/save-strategy', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ propertyId, selection }),
       });
       const data = await response.json();

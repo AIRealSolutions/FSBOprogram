@@ -64,15 +64,30 @@ Create a `.env.local` with:
 
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=your-project-url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-public-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+DEFAULT_OWNER_PROFILE_ID=uuid-of-a-row-in-public.profiles
 ```
 
 For this scaffold, server routes use the service-role key to persist pricing strategies, seller controls, and listing-term renewals. Before production, replace this with authenticated server access and stricter authorization checks.
+
+`DEFAULT_OWNER_PROFILE_ID` is a temporary dev/demo shortcut that lets `/sell` create `properties` rows before auth is wired. Once Supabase Auth is implemented, listing creation should use the logged-in seller id instead.
+
+## Auth
+Pages:
+- `/login`
+- `/register`
+- `/auth/callback` (handles magic-link + email-confirm session exchange)
+
+Supabase Auth settings:
+- Add your site URL(s) to allowed redirect URLs including `https://your-domain.com/auth/callback` (and your local dev URL if you use it).
 
 ## Wired routes
 - `POST /api/boardroom/save-strategy`
 - `POST /api/boardroom/save-preferences`
 - `POST /api/boardroom/renew-term`
+- `POST /api/properties/create` (used by `/sell`)
+- `POST /api/leads/create` (used by `/property/[slug]`)
 
 These routes now persist:
 - property tier updates

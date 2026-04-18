@@ -1,6 +1,6 @@
 import PricingBuilder from '@/components/PricingBuilder';
 
-export default function BoardroomPricingPage() {
+export default function BoardroomPricingPage({ searchParams }: { searchParams?: { propertyId?: string } }) {
   return (
     <main className="container grid">
       <div>
@@ -10,7 +10,7 @@ export default function BoardroomPricingPage() {
           This screen is the service-selection and pricing layer that should feed property service selections, payment ledgers, and agreement triggers in Supabase.
         </p>
       </div>
-      <PricingBuilder />
+      <PricingBuilder propertyId={searchParams?.propertyId} />
     </main>
   );
 }
