@@ -102,7 +102,10 @@ export default function PricingBuilder({ propertyId }: { propertyId?: string }) 
           <div className="card panel">
             <span className="badge">Start with pricing</span>
             <p className="muted small" style={{ margin: '10px 0 0' }}>
-              Choose your plan and add-ons, then continue to onboarding. We'll apply these selections after you sign in and create your listing.
+              Choose your plan and add-ons, then get started with onboarding. We'll apply these selections after you sign in and create your listing.
+            </p>
+            <p className="muted small" style={{ margin: '10px 0 0' }}>
+              All options can be changed anytime in The Boardroom during your 14-day trial.
             </p>
           </div>
         )}
@@ -285,7 +288,7 @@ export default function PricingBuilder({ propertyId }: { propertyId?: string }) 
             </ul>
           </div>
           <button className="btn btn-primary" onClick={onSave} disabled={saveState === 'saving'}>
-            {saveState === 'saving' ? 'Saving...' : propertyId ? 'Save strategy' : 'Continue to onboarding'}
+            {saveState === 'saving' ? 'Saving...' : propertyId ? 'Save strategy' : "Let's get started!"}
           </button>
           {saveMessage && <p className={`small ${saveState === 'error' ? '' : 'muted'}`}>{saveMessage}</p>}
         </div>
