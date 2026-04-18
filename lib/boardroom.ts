@@ -1,4 +1,4 @@
-import { PricingSelection, calculatePricing } from '@/lib/pricing';
+import { PricingSelection, calculatePricing, DIY_FEE_AFTER_TRIAL_CENTS, DIY_TRIAL_DAYS } from '@/lib/pricing';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
 
 const TODAY = () => new Date();
@@ -19,7 +19,18 @@ function selectedServiceRows(selection: PricingSelection) {
   const isPremium = selection.tier === 'premium_full_service';
 
   if (selection.tier === 'diy') {
-    rows.push({ service_code: 'boardroom_diy', selected: true, amount_cents: 39900, percent_value: null });
+    // 14-day trial: represent the service as selected, but do not bill upfront.
+    rows.push({
+      service_code: 'boardroom_diy',
+      selected: true,
+      amount_cents: 0,
+      percent_value: null,
+      metadata: {
+        trial: true,
+        trial_days: DIY_TRIAL_DAYS,
+        due_after_trial_cents: DIY_FEE_AFTER_TRIAL_CENTS,
+      },
+    });
   }
   if (selection.tier === 'mls_protected') {
     rows.push({ service_code: 'mls_exposure', selected: true, amount_cents: null, percent_value: 1.0 });
@@ -111,7 +122,7 @@ export async function savePropertyStrategy(propertyId: string, selection: Pricin
   if (deleteLedgerError) throw deleteLedgerError;
 
   const ledgerRows = [] as Array<{ property_id: string; service_code: string; amount_cents: number; credit_rule: 'always_creditable' | 'premium_only_creditable' | 'never_creditable'; notes: string }>;
-  if (selection.tier === 'diy') ledgerRows.push({ property_id: propertyId, service_code: 'boardroom_diy', amount_cents: 39900, credit_rule: 'always_creditable', notes: 'strategy_builder' });
+  // DIY is a trial-first path; the $399 fee is charged only if the seller continues DIY after the trial.
 
   // Premium: add-ons are included (no upfront ledger rows).
   if (!isPremium) {

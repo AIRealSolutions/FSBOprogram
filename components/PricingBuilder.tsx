@@ -124,8 +124,8 @@ export default function PricingBuilder({ propertyId }: { propertyId?: string }) 
                 })
               }
               title="DIY Boardroom"
-              price="$399"
-              description="Basic website builder, seller-controlled showings, disclosures input, and all-in-one marketing tools."
+              price="$0 today"
+              description="14-day trial. Build your listing, launch AI marketing, manage showings, and run your sale from one dashboard. Continue DIY for $399 after the trial, or upgrade to avoid the upfront DIY fee."
             />
             <TierCard
               tier="mls_protected"
@@ -268,7 +268,10 @@ export default function PricingBuilder({ propertyId }: { propertyId?: string }) 
           ))}
           <hr />
           <div className="row" style={{ justifyContent: 'space-between' }}><span>Listing agreement</span><strong>{preview.listingAgreementMonths ? `${preview.listingAgreementMonths} months` : 'DIY only'}</strong></div>
-          <div className="row" style={{ justifyContent: 'space-between' }}><span>Upfront now</span><strong>${(preview.upfrontNowCents / 100).toFixed(2)}</strong></div>
+          <div className="row" style={{ justifyContent: 'space-between' }}><span>Upfront today</span><strong>${(preview.upfrontNowCents / 100).toFixed(2)}</strong></div>
+          {effectiveSelection.tier === 'diy' && (
+            <div className="row" style={{ justifyContent: 'space-between' }}><span>Due after trial</span><strong>${(preview.dueAfterTrialCents / 100).toFixed(2)}</strong></div>
+          )}
           <div className="row" style={{ justifyContent: 'space-between' }}><span>Potential commission</span><strong>{preview.totalPotentialCommissionPercent}%</strong></div>
           <div className="row" style={{ justifyContent: 'space-between' }}><span>Always creditable</span><strong>${(preview.totalAlwaysCreditableCents / 100).toFixed(2)}</strong></div>
           <div className="row" style={{ justifyContent: 'space-between' }}><span>Premium-only credit</span><strong>${(preview.totalPremiumOnlyCreditableCents / 100).toFixed(2)}</strong></div>

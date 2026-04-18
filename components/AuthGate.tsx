@@ -39,8 +39,8 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
       <main className="container grid">
         <div className="card panel">
           <span className="badge">FSBO Program</span>
-          <h1 style={{ margin: '10px 0 6px' }}>Checking your session…</h1>
-          <p className="muted">If you are not signed in, we’ll send you to the login screen.</p>
+          <h1 style={{ margin: '10px 0 6px' }}>Checking your session...</h1>
+          <p className="muted">If you are not signed in, we'll send you to the login screen.</p>
         </div>
       </main>
     );
@@ -48,4 +48,3 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
 
   return <>{children}</>;
 }
-

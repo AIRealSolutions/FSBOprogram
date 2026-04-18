@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
-import type { PricingSelection } from '@/lib/pricing';
+import { DIY_FEE_AFTER_TRIAL_CENTS, DIY_TRIAL_DAYS, type PricingSelection } from '@/lib/pricing';
 import { clearPricingSelection, loadPricingSelection } from '@/lib/pricingHandoff';
 
 type CreatePayload = {
@@ -225,10 +225,14 @@ export default function SellWizard() {
               <strong>Pricing selected</strong>
               <div className="muted small" style={{ marginTop: 6 }}>
                 {savedPricingSummary.tierLabel}
-                {savedPricingSummary.buyerAgency ? ` • Buyer agent: ${savedPricingSummary.buyerAgency}%` : ''}
-                {savedPricingSummary.addOnsCount ? ` • Add-ons: ${savedPricingSummary.addOnsCount}` : ''}
+                {savedPricingSummary.buyerAgency ? ` | Buyer agent: ${savedPricingSummary.buyerAgency}%` : ''}
+                {savedPricingSummary.addOnsCount ? ` | Add-ons: ${savedPricingSummary.addOnsCount}` : ''}
               </div>
-              <div className="muted small">We’ll apply this after your listing is created.</div>
+              <div className="muted small">
+                {savedPricing?.tier === 'diy'
+                  ? `DIY starts with a ${DIY_TRIAL_DAYS}-day trial. After that, continue DIY for $${(DIY_FEE_AFTER_TRIAL_CENTS / 100).toFixed(0)} or upgrade to tier 2/3 to avoid the upfront DIY fee.`
+                  : "We'll apply this after your listing is created."}
+              </div>
             </div>
           )}
 
@@ -241,12 +245,12 @@ export default function SellWizard() {
           </div>
           <div className="row" style={{ justifyContent: 'space-between' }}>
             <span>Price</span>
-            <strong>{priceCents ? `$${(priceCents / 100).toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '—'}</strong>
+            <strong>{priceCents ? `$${(priceCents / 100).toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '-'}</strong>
           </div>
           <div className="row" style={{ justifyContent: 'space-between' }}>
             <span>Beds / Baths</span>
             <strong>
-              {form.beds || '—'} / {form.baths || '—'}
+              {form.beds || '-'} / {form.baths || '-'}
             </strong>
           </div>
           <div className="row" style={{ justifyContent: 'space-between' }}>
@@ -259,4 +263,3 @@ export default function SellWizard() {
     </div>
   );
 }
-

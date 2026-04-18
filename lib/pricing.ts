@@ -1,5 +1,8 @@
 export type Tier = 'diy' | 'mls_protected' | 'premium_full_service';
 
+export const DIY_TRIAL_DAYS = 14;
+export const DIY_FEE_AFTER_TRIAL_CENTS = 39900;
+
 export type PricingSelection = {
   tier: Tier;
   buyerAgencyPercent: number;
@@ -19,6 +22,8 @@ export type PricingSelection = {
 export type PricingPreview = {
   lines: { label: string; value: string }[];
   upfrontNowCents: number;
+  dueAfterTrialCents: number;
+  trialDays: number;
   currentTermMonths: number;
   quarterlyAdAllocationCents: number;
   renewalQuarterlyAdAllocationCents: number;
@@ -44,6 +49,7 @@ export function calculatePricing(selection: PricingSelection): PricingPreview {
   let alwaysCredit = 0;
   let premiumOnlyCredit = 0;
   let neverCredit = 0;
+  let dueAfterTrialCents = 0;
   const isPremium = selection.tier === 'premium_full_service';
   const listingAgreementMonths = selection.tier === 'diy' ? 0 : 3;
   const quarterlyAdAllocationCents = selection.tier === 'diy' ? 0 : 25000;
@@ -52,11 +58,13 @@ export function calculatePricing(selection: PricingSelection): PricingPreview {
   const sellerControlNotes: string[] = [];
 
   if (selection.tier === 'diy') {
-    upfrontNowCents += 39900;
-    alwaysCredit += 39900;
-    lines.push({ label: 'DIY Boardroom', value: '$399' });
+    // 14-day trial: no DIY fee upfront. If the seller stays DIY after the trial, the fee is due then.
+    dueAfterTrialCents += DIY_FEE_AFTER_TRIAL_CENTS;
+    lines.push({ label: 'DIY Boardroom', value: `$0 today (${DIY_TRIAL_DAYS}-day trial)` });
+    lines.push({ label: 'Continue DIY after trial', value: '$399' });
     sellerControlNotes.push('Seller controls the website builder, disclosures, lead flow, showing calendar, and all-in-one marketing tools inside The Boardroom.');
     sellerControlNotes.push('DIY does not include MLS, broker-supported contracts, negotiations, or closing support.');
+    sellerControlNotes.push(`After your ${DIY_TRIAL_DAYS}-day trial, you can either continue DIY for $399 or upgrade to Hybrid / Full Service to avoid the upfront DIY fee.`);
   }
 
   if (selection.tier === 'mls_protected') {
@@ -138,6 +146,8 @@ export function calculatePricing(selection: PricingSelection): PricingPreview {
   return {
     lines,
     upfrontNowCents,
+    dueAfterTrialCents,
+    trialDays: selection.tier === 'diy' ? DIY_TRIAL_DAYS : 0,
     currentTermMonths: 3,
     quarterlyAdAllocationCents,
     renewalQuarterlyAdAllocationCents,

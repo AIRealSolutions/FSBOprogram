@@ -44,8 +44,8 @@ export default function HomePage() {
       <div className="three-col">
         <div className="card kpi">
           <h3>DIY</h3>
-          <strong>$399</strong>
-          <div className="muted">Launch + control the process</div>
+          <strong>$0 today</strong>
+          <div className="muted">14-day trial, then $399 to stay DIY</div>
         </div>
         <div className="card kpi">
           <h3>Hybrid</h3>
@@ -120,4 +120,3 @@ export default function HomePage() {
     </main>
   );
 }
-
