@@ -16,6 +16,7 @@ function addMonthsMinusDay(start: Date, months: number) {
 
 function selectedServiceRows(selection: PricingSelection) {
   const rows: Array<{ service_code: string; selected: boolean; amount_cents: number | null; percent_value: number | null; metadata?: Record<string, unknown> }> = [];
+  const isPremium = selection.tier === 'premium_full_service';
 
   if (selection.tier === 'diy') {
     rows.push({ service_code: 'boardroom_diy', selected: true, amount_cents: 39900, percent_value: null });
@@ -37,11 +38,21 @@ function selectedServiceRows(selection: PricingSelection) {
   if (selection.dualAgencyEnabled) {
     rows.push({ service_code: 'dual_agency', selected: true, amount_cents: null, percent_value: 1.0 });
   }
-  if (selection.addOns.sign) rows.push({ service_code: 'sign_qr', selected: true, amount_cents: 10000, percent_value: null });
-  if (selection.addOns.rider) rows.push({ service_code: 'rider_qr', selected: true, amount_cents: 2500, percent_value: null });
-  if (selection.addOns.infoBox) rows.push({ service_code: 'info_box_qr', selected: true, amount_cents: 2500, percent_value: null });
-  if (selection.addOns.drone) rows.push({ service_code: 'drone', selected: true, amount_cents: 25000, percent_value: null });
-  if (selection.addOns.photos) rows.push({ service_code: 'photos', selected: true, amount_cents: 50000, percent_value: null });
+
+  // Premium: all add-ons are included at $0 (still tracked as selected services for fulfillment).
+  if (isPremium) {
+    rows.push({ service_code: 'sign_qr', selected: true, amount_cents: 0, percent_value: null, metadata: { included: true } });
+    rows.push({ service_code: 'rider_qr', selected: true, amount_cents: 0, percent_value: null, metadata: { included: true } });
+    rows.push({ service_code: 'info_box_qr', selected: true, amount_cents: 0, percent_value: null, metadata: { included: true } });
+    rows.push({ service_code: 'drone', selected: true, amount_cents: 0, percent_value: null, metadata: { included: true } });
+    rows.push({ service_code: 'photos', selected: true, amount_cents: 0, percent_value: null, metadata: { included: true } });
+  } else {
+    if (selection.addOns.sign) rows.push({ service_code: 'sign_qr', selected: true, amount_cents: 10000, percent_value: null });
+    if (selection.addOns.rider) rows.push({ service_code: 'rider_qr', selected: true, amount_cents: 2500, percent_value: null });
+    if (selection.addOns.infoBox) rows.push({ service_code: 'info_box_qr', selected: true, amount_cents: 2500, percent_value: null });
+    if (selection.addOns.drone) rows.push({ service_code: 'drone', selected: true, amount_cents: 25000, percent_value: null });
+    if (selection.addOns.photos) rows.push({ service_code: 'photos', selected: true, amount_cents: 50000, percent_value: null });
+  }
 
   return rows;
 }
@@ -49,6 +60,7 @@ function selectedServiceRows(selection: PricingSelection) {
 export async function savePropertyStrategy(propertyId: string, selection: PricingSelection, userId?: string) {
   const supabase = getSupabaseAdmin();
   const pricing = calculatePricing(selection);
+  const isPremium = selection.tier === 'premium_full_service';
 
   const { error: propertyError } = await supabase
     .from('properties')
@@ -100,11 +112,15 @@ export async function savePropertyStrategy(propertyId: string, selection: Pricin
 
   const ledgerRows = [] as Array<{ property_id: string; service_code: string; amount_cents: number; credit_rule: 'always_creditable' | 'premium_only_creditable' | 'never_creditable'; notes: string }>;
   if (selection.tier === 'diy') ledgerRows.push({ property_id: propertyId, service_code: 'boardroom_diy', amount_cents: 39900, credit_rule: 'always_creditable', notes: 'strategy_builder' });
-  if (selection.addOns.sign) ledgerRows.push({ property_id: propertyId, service_code: 'sign_qr', amount_cents: 10000, credit_rule: 'always_creditable', notes: 'strategy_builder' });
-  if (selection.addOns.rider) ledgerRows.push({ property_id: propertyId, service_code: 'rider_qr', amount_cents: 2500, credit_rule: 'always_creditable', notes: 'strategy_builder' });
-  if (selection.addOns.infoBox) ledgerRows.push({ property_id: propertyId, service_code: 'info_box_qr', amount_cents: 2500, credit_rule: 'always_creditable', notes: 'strategy_builder' });
-  if (selection.addOns.drone) ledgerRows.push({ property_id: propertyId, service_code: 'drone', amount_cents: 25000, credit_rule: 'premium_only_creditable', notes: 'strategy_builder' });
-  if (selection.addOns.photos) ledgerRows.push({ property_id: propertyId, service_code: 'photos', amount_cents: 50000, credit_rule: 'premium_only_creditable', notes: 'strategy_builder' });
+
+  // Premium: add-ons are included (no upfront ledger rows).
+  if (!isPremium) {
+    if (selection.addOns.sign) ledgerRows.push({ property_id: propertyId, service_code: 'sign_qr', amount_cents: 10000, credit_rule: 'always_creditable', notes: 'strategy_builder' });
+    if (selection.addOns.rider) ledgerRows.push({ property_id: propertyId, service_code: 'rider_qr', amount_cents: 2500, credit_rule: 'always_creditable', notes: 'strategy_builder' });
+    if (selection.addOns.infoBox) ledgerRows.push({ property_id: propertyId, service_code: 'info_box_qr', amount_cents: 2500, credit_rule: 'always_creditable', notes: 'strategy_builder' });
+    if (selection.addOns.drone) ledgerRows.push({ property_id: propertyId, service_code: 'drone', amount_cents: 25000, credit_rule: 'premium_only_creditable', notes: 'strategy_builder' });
+    if (selection.addOns.photos) ledgerRows.push({ property_id: propertyId, service_code: 'photos', amount_cents: 50000, credit_rule: 'premium_only_creditable', notes: 'strategy_builder' });
+  }
 
   if (ledgerRows.length) {
     const { error: ledgerError } = await supabase.from('property_payment_ledger').insert(ledgerRows);

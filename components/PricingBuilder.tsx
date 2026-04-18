@@ -52,15 +52,22 @@ export default function PricingBuilder({ propertyId }: { propertyId?: string }) 
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [saveMessage, setSaveMessage] = useState('');
 
-  const preview = useMemo(() => calculatePricing(selection), [selection]);
   const isTier2 = selection.tier === 'mls_protected';
   const isTier3 = selection.tier === 'premium_full_service';
+
+  // Premium always includes add-ons; keep state consistent even if a selection was loaded from storage.
+  const effectiveSelection = useMemo(() => {
+    if (!isTier3) return selection;
+    return { ...selection, addOns: { sign: true, rider: true, infoBox: true, drone: true, photos: true } };
+  }, [selection, isTier3]);
+
+  const preview = useMemo(() => calculatePricing(effectiveSelection), [effectiveSelection]);
 
   async function onSave() {
     try {
       if (!propertyId) {
         // Pricing-first flow: store selections locally and send to onboarding.
-        savePricingSelection(selection);
+        savePricingSelection(effectiveSelection);
         window.location.href = '/sell?fromPricing=1';
         return;
       }
@@ -76,7 +83,7 @@ export default function PricingBuilder({ propertyId }: { propertyId?: string }) 
       const response = await fetch('/api/boardroom/save-strategy', {
         method: 'POST',
         headers,
-        body: JSON.stringify({ propertyId, selection }),
+        body: JSON.stringify({ propertyId, selection: effectiveSelection }),
       });
       const data = await response.json();
       if (!response.ok || !data.ok) throw new Error(data.error || 'Failed to save strategy');
@@ -95,7 +102,7 @@ export default function PricingBuilder({ propertyId }: { propertyId?: string }) 
           <div className="card panel">
             <span className="badge">Start with pricing</span>
             <p className="muted small" style={{ margin: '10px 0 0' }}>
-              Choose your plan and add-ons, then continue to onboarding. We’ll apply these selections after you sign in and create your listing.
+              Choose your plan and add-ons, then continue to onboarding. We'll apply these selections after you sign in and create your listing.
             </p>
           </div>
         )}
@@ -145,11 +152,12 @@ export default function PricingBuilder({ propertyId }: { propertyId?: string }) 
                   tier,
                   sellerHandlesShowings: false,
                   showingAgentEnabled: false,
+                  addOns: { sign: true, rider: true, infoBox: true, drone: true, photos: true },
                 })
               }
               title="Premium Full Service"
               price="3%"
-              description="Full seller representation with premium marketing, open house support, and quarterly ad funds."
+              description="Full seller representation with premium marketing. All add-ons included."
             />
           </div>
         </div>
@@ -232,13 +240,19 @@ export default function PricingBuilder({ propertyId }: { propertyId?: string }) 
               <label key={key} className="option">
                 <div className="row" style={{ justifyContent: 'space-between' }}>
                   <span>{label}</span>
-                  <input type="checkbox" checked={(selection.addOns as Record<string, boolean>)[key]} onChange={(e) => setSelection({ ...selection, addOns: { ...selection.addOns, [key]: e.target.checked } })} />
+                  <input
+                    type="checkbox"
+                    disabled={isTier3}
+                    checked={isTier3 ? true : (selection.addOns as Record<string, boolean>)[key]}
+                    onChange={(e) => setSelection({ ...selection, addOns: { ...selection.addOns, [key]: e.target.checked } })}
+                  />
                 </div>
+                {isTier3 && <p className="muted small" style={{ margin: '8px 0 0' }}>Included</p>}
               </label>
             ))}
           </div>
           <p className="small muted" style={{ marginTop: 12 }}>
-            Boardroom setup and signage are always creditable. Drone and professional images become premium-only credit when the listing qualifies for the higher premium package. Quarterly ad campaign funds are used during each active term and do not convert or refund.
+            Premium includes all add-ons at $0. In other tiers, Boardroom setup and signage are always creditable. Drone and professional images become premium-only credit when the listing qualifies for the higher premium package.
           </p>
         </div>
       </div>
@@ -256,8 +270,6 @@ export default function PricingBuilder({ propertyId }: { propertyId?: string }) 
           <div className="row" style={{ justifyContent: 'space-between' }}><span>Listing agreement</span><strong>{preview.listingAgreementMonths ? `${preview.listingAgreementMonths} months` : 'DIY only'}</strong></div>
           <div className="row" style={{ justifyContent: 'space-between' }}><span>Upfront now</span><strong>${(preview.upfrontNowCents / 100).toFixed(2)}</strong></div>
           <div className="row" style={{ justifyContent: 'space-between' }}><span>Potential commission</span><strong>{preview.totalPotentialCommissionPercent}%</strong></div>
-          <div className="row" style={{ justifyContent: 'space-between' }}><span>Current quarter ad funds</span><strong>${(preview.quarterlyAdAllocationCents / 100).toFixed(2)}</strong></div>
-          <div className="row" style={{ justifyContent: 'space-between' }}><span>Next extension ad funds</span><strong>${(preview.renewalQuarterlyAdAllocationCents / 100).toFixed(2)}</strong></div>
           <div className="row" style={{ justifyContent: 'space-between' }}><span>Always creditable</span><strong>${(preview.totalAlwaysCreditableCents / 100).toFixed(2)}</strong></div>
           <div className="row" style={{ justifyContent: 'space-between' }}><span>Premium-only credit</span><strong>${(preview.totalPremiumOnlyCreditableCents / 100).toFixed(2)}</strong></div>
           <div className="row" style={{ justifyContent: 'space-between' }}><span>Never creditable</span><strong>${(preview.totalNonCreditableCents / 100).toFixed(2)}</strong></div>

@@ -44,6 +44,7 @@ export function calculatePricing(selection: PricingSelection): PricingPreview {
   let alwaysCredit = 0;
   let premiumOnlyCredit = 0;
   let neverCredit = 0;
+  const isPremium = selection.tier === 'premium_full_service';
   const listingAgreementMonths = selection.tier === 'diy' ? 0 : 3;
   const quarterlyAdAllocationCents = selection.tier === 'diy' ? 0 : 25000;
   const renewalQuarterlyAdAllocationCents = selection.extendTerm && selection.tier !== 'diy' ? 25000 : 0;
@@ -76,7 +77,7 @@ export function calculatePricing(selection: PricingSelection): PricingPreview {
     commissionPercent += 3;
     lines.push({ label: 'Premium Full Service', value: '3%' });
     lines.push({ label: 'Premium marketing', value: 'Included' });
-    sellerControlNotes.push('This plan uses a 3-month listing agreement and includes premium marketing, open house launch support, and up to $250 in ad campaign funds each quarter.');
+    sellerControlNotes.push('This plan uses a 3-month listing agreement and includes premium marketing and open house launch support.');
     sellerControlNotes.push('Seller still controls approvals for listing content, media use, ad launch, open house preferences, buyer-agent incentive, and renewal timing in The Boardroom.');
   }
 
@@ -91,44 +92,48 @@ export function calculatePricing(selection: PricingSelection): PricingPreview {
   }
 
   if (selection.extendTerm && selection.tier !== 'diy') {
-    lines.push({ label: '3-month extension', value: 'Adds another quarter + another $250 ad allocation' });
-    sellerControlNotes.push('Each extension adds another 3-month term and another $250 ad campaign allocation.');
+    lines.push({ label: '3-month extension', value: 'Extend one quarter at a time' });
+    sellerControlNotes.push('Each extension adds another 3-month term and keeps your Boardroom history intact.');
   }
 
-  if (selection.addOns.sign) {
-    upfrontNowCents += ADD_ONS.sign;
-    alwaysCredit += ADD_ONS.sign;
-    lines.push({ label: 'For Sale sign + QR', value: '$100' });
-  }
-  if (selection.addOns.rider) {
-    upfrontNowCents += ADD_ONS.rider;
-    alwaysCredit += ADD_ONS.rider;
-    lines.push({ label: 'Two-sided rider', value: '$25' });
-  }
-  if (selection.addOns.infoBox) {
-    upfrontNowCents += ADD_ONS.infoBox;
-    alwaysCredit += ADD_ONS.infoBox;
-    lines.push({ label: 'Info box + QR', value: '$25' });
-  }
-  if (selection.addOns.drone) {
-    upfrontNowCents += ADD_ONS.drone;
-    premiumOnlyCredit += ADD_ONS.drone;
-    lines.push({ label: 'Drone service', value: '$250' });
-  }
-  if (selection.addOns.photos) {
-    upfrontNowCents += ADD_ONS.photos;
-    premiumOnlyCredit += ADD_ONS.photos;
-    lines.push({ label: 'Professional images', value: '$500' });
+  // Premium: add-ons are included at $0. Other tiers: add-ons are optional and billed upfront.
+  if (isPremium) {
+    lines.push({ label: 'For Sale sign + QR', value: 'Included' });
+    lines.push({ label: 'Two-sided rider', value: 'Included' });
+    lines.push({ label: 'Info box + QR', value: 'Included' });
+    lines.push({ label: 'Drone service', value: 'Included' });
+    lines.push({ label: 'Professional images', value: 'Included' });
+  } else {
+    if (selection.addOns.sign) {
+      upfrontNowCents += ADD_ONS.sign;
+      alwaysCredit += ADD_ONS.sign;
+      lines.push({ label: 'For Sale sign + QR', value: '$100' });
+    }
+    if (selection.addOns.rider) {
+      upfrontNowCents += ADD_ONS.rider;
+      alwaysCredit += ADD_ONS.rider;
+      lines.push({ label: 'Two-sided rider', value: '$25' });
+    }
+    if (selection.addOns.infoBox) {
+      upfrontNowCents += ADD_ONS.infoBox;
+      alwaysCredit += ADD_ONS.infoBox;
+      lines.push({ label: 'Info box + QR', value: '$25' });
+    }
+    if (selection.addOns.drone) {
+      upfrontNowCents += ADD_ONS.drone;
+      premiumOnlyCredit += ADD_ONS.drone;
+      lines.push({ label: 'Drone service', value: '$250' });
+    }
+    if (selection.addOns.photos) {
+      upfrontNowCents += ADD_ONS.photos;
+      premiumOnlyCredit += ADD_ONS.photos;
+      lines.push({ label: 'Professional images', value: '$500' });
+    }
   }
 
-  if (quarterlyAdAllocationCents > 0) {
-    neverCredit += quarterlyAdAllocationCents;
-    lines.push({ label: 'Ad campaign allocation', value: '$250 / quarter' });
-  }
-  if (renewalQuarterlyAdAllocationCents > 0) {
-    neverCredit += renewalQuarterlyAdAllocationCents;
-    lines.push({ label: 'Renewal ad allocation', value: '$250 on extension' });
-  }
+  // Keep ad allocations in the totals, but don't emphasize them in the line-item summary.
+  if (quarterlyAdAllocationCents > 0) neverCredit += quarterlyAdAllocationCents;
+  if (renewalQuarterlyAdAllocationCents > 0) neverCredit += renewalQuarterlyAdAllocationCents;
 
   return {
     lines,
