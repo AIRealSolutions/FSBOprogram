@@ -6,8 +6,8 @@ export default function SiteHeader() {
     <header className="site-header">
       <div className="container row" style={{ justifyContent: 'space-between' }}>
         <Link className="brand" href="/">
-          <img src="/brand/fsboprogram-mark-v5-sales-engine.svg" alt="" width={36} height={36} />
-          <span className="brand-name">FSBO Program</span>
+          <img className="brand-logo" src="/brand/fsboprogram-header.png" alt="FSBOprogram.com" />
+          <span className="sr-only">FSBO Program</span>
         </Link>
         <nav className="row site-nav">
           <Link className="nav-link" href="/sell">
