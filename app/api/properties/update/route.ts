@@ -163,7 +163,7 @@ export async function POST(req: NextRequest) {
     // Upload intake (photos/docs/video + a JSON answer sheet) to Supabase Storage.
     const warnings: string[] = [];
     if (contentType.includes('multipart/form-data') && (photos.length || documents.length || videoFile || body.intakeAnswers)) {
-      const bucket = 'property-intake';
+      const bucket = 'fsboprogram';
       const uploadPrefix = `${propertyId}`;
 
       async function uploadFile(prefix: string, file: File) {

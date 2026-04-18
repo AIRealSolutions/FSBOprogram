@@ -163,7 +163,7 @@ export async function POST(req: NextRequest) {
     // This avoids needing DB schema changes while still capturing a full "listing interview".
     const warnings: string[] = [];
     if (contentType.includes('multipart/form-data') && (photos.length || documents.length || videoFile || body.intakeAnswers)) {
-      const bucket = 'property-intake';
+      const bucket = 'fsboprogram';
       const uploadPrefix = `${property.id}`;
 
       async function uploadFile(prefix: string, file: File) {
