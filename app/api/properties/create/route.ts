@@ -3,6 +3,8 @@ import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
 import { makePropertySlug } from '@/lib/slug';
 import { optionalEnv } from '@/lib/env';
 import { getSupabaseUserFromRequest } from '@/lib/supabaseAuthServer';
+import { savePropertyStrategy } from '@/lib/boardroom';
+import type { PricingSelection } from '@/lib/pricing';
 
 type Body = {
   title: string;
@@ -16,6 +18,7 @@ type Body = {
   baths?: string;
   squareFeet?: string;
   publishNow?: boolean;
+  selection?: PricingSelection | null;
 };
 
 function dollarsToCents(raw: string) {
@@ -40,6 +43,7 @@ export async function POST(req: NextRequest) {
     const baths = body.baths ? Number(body.baths) : null;
     const squareFeet = body.squareFeet ? Number(body.squareFeet) : null;
     const publishNow = body.publishNow !== false;
+    const selection = (body.selection ?? null) as PricingSelection | null;
 
     if (!title) return NextResponse.json({ ok: false, error: 'Title is required' }, { status: 400 });
     if (!addressLine1 || !city || !state || !postalCode) return NextResponse.json({ ok: false, error: 'Address, city, state, and ZIP are required' }, { status: 400 });
@@ -108,6 +112,11 @@ export async function POST(req: NextRequest) {
       last_updated_by_user_id: authedUser?.id ?? null,
       updated_at: nowIso,
     });
+
+    // If onboarding included a pricing selection, apply it now that identity is known and property exists.
+    if (selection) {
+      await savePropertyStrategy(property.id, selection, authedUser?.id ?? ownerUserId);
+    }
 
     return NextResponse.json({ ok: true, property, ownerMode: authedUser ? 'auth' : 'default' });
   } catch (error) {

@@ -1,7 +1,9 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
+import type { PricingSelection } from '@/lib/pricing';
+import { clearPricingSelection, loadPricingSelection } from '@/lib/pricingHandoff';
 
 type CreatePayload = {
   title: string;
@@ -28,6 +30,7 @@ export default function SellWizard() {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [savedPricing, setSavedPricing] = useState<PricingSelection | null>(null);
 
   const [form, setForm] = useState<CreatePayload>({
     title: '',
@@ -45,6 +48,22 @@ export default function SellWizard() {
 
   const priceCents = useMemo(() => dollarsToCents(form.price), [form.price]);
 
+  useEffect(() => {
+    setSavedPricing(loadPricingSelection());
+  }, []);
+
+  const savedPricingSummary = useMemo(() => {
+    if (!savedPricing) return null;
+    const tierLabel =
+      savedPricing.tier === 'diy'
+        ? 'DIY'
+        : savedPricing.tier === 'mls_protected'
+          ? 'Hybrid (MLS + protected closing)'
+          : 'Full service';
+    const addOnsCount = Object.values(savedPricing.addOns).filter(Boolean).length;
+    return { tierLabel, addOnsCount, buyerAgency: savedPricing.buyerAgencyPercent };
+  }, [savedPricing]);
+
   async function createListing() {
     setError(null);
     setSubmitting(true);
@@ -60,10 +79,13 @@ export default function SellWizard() {
       const response = await fetch('/api/properties/create', {
         method: 'POST',
         headers,
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, selection: savedPricing }),
       });
       const data = await response.json();
       if (!response.ok || !data.ok) throw new Error(data.error || 'Failed to create listing');
+
+      // Pricing is now applied; clear it so it doesn't bleed into the next listing.
+      clearPricingSelection();
       window.location.href = `/boardroom/${data.property.id}`;
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong');
@@ -79,7 +101,7 @@ export default function SellWizard() {
           <span className="badge">Sell your home</span>
           <h1 style={{ margin: '10px 0 6px' }}>Create your listing</h1>
           <p className="muted" style={{ maxWidth: 760 }}>
-            This is the first step of the all-in-one sales engine: get your public page live, start capturing leads, and manage everything from the Boardroom.
+            Get your public page live, start capturing leads, and manage everything from the Boardroom.
           </p>
         </div>
 
@@ -87,13 +109,13 @@ export default function SellWizard() {
           <div className="row" style={{ justifyContent: 'space-between' }}>
             <strong>Step {step} of 3</strong>
             <div className="row">
-              <button className="btn" onClick={() => setStep(1)} disabled={step === 1}>
+              <button className="btn" type="button" onClick={() => setStep(1)} disabled={step === 1}>
                 Property
               </button>
-              <button className="btn" onClick={() => setStep(2)} disabled={step === 2}>
+              <button className="btn" type="button" onClick={() => setStep(2)} disabled={step === 2}>
                 Basics
               </button>
-              <button className="btn" onClick={() => setStep(3)} disabled={step === 3}>
+              <button className="btn" type="button" onClick={() => setStep(3)} disabled={step === 3}>
                 Publish
               </button>
             </div>
@@ -126,7 +148,7 @@ export default function SellWizard() {
               </div>
             </div>
             <div className="row" style={{ justifyContent: 'flex-end' }}>
-              <button className="btn btn-primary" onClick={() => setStep(2)}>
+              <button className="btn btn-primary" type="button" onClick={() => setStep(2)}>
                 Continue
               </button>
             </div>
@@ -159,10 +181,10 @@ export default function SellWizard() {
               <input value={form.squareFeet ?? ''} onChange={(e) => setForm({ ...form, squareFeet: e.target.value })} placeholder="1850" />
             </div>
             <div className="row" style={{ justifyContent: 'space-between' }}>
-              <button className="btn" onClick={() => setStep(1)}>
+              <button className="btn" type="button" onClick={() => setStep(1)}>
                 Back
               </button>
-              <button className="btn btn-primary" onClick={() => setStep(3)} disabled={!priceCents}>
+              <button className="btn btn-primary" type="button" onClick={() => setStep(3)} disabled={!priceCents}>
                 Continue
               </button>
             </div>
@@ -183,10 +205,10 @@ export default function SellWizard() {
               </div>
             </label>
             <div className="row" style={{ justifyContent: 'space-between' }}>
-              <button className="btn" onClick={() => setStep(2)}>
+              <button className="btn" type="button" onClick={() => setStep(2)}>
                 Back
               </button>
-              <button className="btn btn-primary" onClick={createListing} disabled={submitting}>
+              <button className="btn btn-primary" type="button" onClick={createListing} disabled={submitting}>
                 {submitting ? 'Creating...' : 'Create listing'}
               </button>
             </div>
@@ -198,6 +220,18 @@ export default function SellWizard() {
       <div className="card panel sticky">
         <h2 className="section-title">Preview</h2>
         <div className="grid">
+          {savedPricingSummary && (
+            <div className="option active">
+              <strong>Pricing selected</strong>
+              <div className="muted small" style={{ marginTop: 6 }}>
+                {savedPricingSummary.tierLabel}
+                {savedPricingSummary.buyerAgency ? ` • Buyer agent: ${savedPricingSummary.buyerAgency}%` : ''}
+                {savedPricingSummary.addOnsCount ? ` • Add-ons: ${savedPricingSummary.addOnsCount}` : ''}
+              </div>
+              <div className="muted small">We’ll apply this after your listing is created.</div>
+            </div>
+          )}
+
           <div className="option">
             <strong>{form.title || 'Listing title'}</strong>
             <div className="muted small">
@@ -211,17 +245,18 @@ export default function SellWizard() {
           </div>
           <div className="row" style={{ justifyContent: 'space-between' }}>
             <span>Beds / Baths</span>
-            <strong>{form.beds || '—'} / {form.baths || '—'}</strong>
+            <strong>
+              {form.beds || '—'} / {form.baths || '—'}
+            </strong>
           </div>
           <div className="row" style={{ justifyContent: 'space-between' }}>
             <span>Status</span>
             <strong>{form.publishNow ? 'Active (demo)' : 'Draft'}</strong>
           </div>
-          <p className="small muted">
-            This wizard writes to your `properties` table via `/api/properties/create`.
-          </p>
+          <p className="small muted">This wizard writes to your `properties` table via `/api/properties/create`.</p>
         </div>
       </div>
     </div>
   );
 }
+

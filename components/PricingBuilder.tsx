@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { calculatePricing, PricingSelection, Tier } from '@/lib/pricing';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
+import { savePricingSelection } from '@/lib/pricingHandoff';
 
 function TierCard({
   tier,
@@ -58,8 +59,9 @@ export default function PricingBuilder({ propertyId }: { propertyId?: string }) 
   async function onSave() {
     try {
       if (!propertyId) {
-        setSaveState('error');
-        setSaveMessage('To save, open pricing from a specific property in your Boardroom.');
+        // Pricing-first flow: store selections locally and send to onboarding.
+        savePricingSelection(selection);
+        window.location.href = '/sell?fromPricing=1';
         return;
       }
 
@@ -91,9 +93,9 @@ export default function PricingBuilder({ propertyId }: { propertyId?: string }) 
       <div className="grid">
         {!propertyId && (
           <div className="card panel">
-            <span className="badge">Preview mode</span>
+            <span className="badge">Start with pricing</span>
             <p className="muted small" style={{ margin: '10px 0 0' }}>
-              You can explore pricing here, but saving requires a specific property. Create a listing, then open Pricing from your Boardroom.
+              Choose your plan and add-ons, then continue to onboarding. We’ll apply these selections after you sign in and create your listing.
             </p>
           </div>
         )}
@@ -267,8 +269,8 @@ export default function PricingBuilder({ propertyId }: { propertyId?: string }) 
               ))}
             </ul>
           </div>
-          <button className="btn btn-primary" onClick={onSave} disabled={saveState === 'saving' || !propertyId}>
-            {saveState === 'saving' ? 'Saving...' : !propertyId ? 'Save (Boardroom only)' : 'Save strategy'}
+          <button className="btn btn-primary" onClick={onSave} disabled={saveState === 'saving'}>
+            {saveState === 'saving' ? 'Saving...' : propertyId ? 'Save strategy' : 'Continue to onboarding'}
           </button>
           {saveMessage && <p className={`small ${saveState === 'error' ? '' : 'muted'}`}>{saveMessage}</p>}
         </div>
