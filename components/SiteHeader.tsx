@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import AuthButton from '@/components/AuthButton';
+import AdminNavLink from '@/components/AdminNavLink';
 
 export default function SiteHeader() {
   return (
@@ -16,6 +17,7 @@ export default function SiteHeader() {
           <Link className="nav-link" href="/pricing">
             Pricing
           </Link>
+          <AdminNavLink />
           <AuthButton />
         </nav>
       </div>
