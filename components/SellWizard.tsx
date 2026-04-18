@@ -19,6 +19,21 @@ type CreatePayload = {
   publishNow: boolean;
 };
 
+type IntakeAnswers = {
+  videoUrl: string;
+  ownerNotes: string;
+  deedAvailable: 'yes' | 'no' | 'unsure';
+  taxRecordAvailable: 'yes' | 'no' | 'unsure';
+  hoa: 'yes' | 'no' | 'unsure';
+  hoaMonthlyDues: string;
+  occupancy: 'owner' | 'tenant' | 'vacant' | 'unsure';
+  keyFeatures: string;
+  recentUpgrades: string;
+  disclosuresReady: 'yes' | 'no' | 'unsure';
+  preferredShowingNotes: string;
+  anythingElse: string;
+};
+
 function dollarsToCents(raw: string) {
   const cleaned = raw.replace(/[$,]/g, '').trim();
   const value = Number(cleaned);
@@ -27,10 +42,27 @@ function dollarsToCents(raw: string) {
 }
 
 export default function SellWizard() {
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedPricing, setSavedPricing] = useState<PricingSelection | null>(null);
+  const [photos, setPhotos] = useState<File[]>([]);
+  const [documents, setDocuments] = useState<File[]>([]);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [intake, setIntake] = useState<IntakeAnswers>({
+    videoUrl: '',
+    ownerNotes: '',
+    deedAvailable: 'unsure',
+    taxRecordAvailable: 'unsure',
+    hoa: 'unsure',
+    hoaMonthlyDues: '',
+    occupancy: 'unsure',
+    keyFeatures: '',
+    recentUpgrades: '',
+    disclosuresReady: 'unsure',
+    preferredShowingNotes: '',
+    anythingElse: '',
+  });
 
   const [form, setForm] = useState<CreatePayload>({
     title: '',
@@ -73,13 +105,32 @@ export default function SellWizard() {
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData.session?.access_token ?? null;
 
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      const headers: Record<string, string> = {};
       if (accessToken) headers.authorization = `Bearer ${accessToken}`;
+
+      // Use multipart so we can ship media/docs in the same request as listing creation.
+      const formData = new FormData();
+      formData.set('title', form.title);
+      formData.set('addressLine1', form.addressLine1);
+      formData.set('addressLine2', form.addressLine2 ?? '');
+      formData.set('city', form.city);
+      formData.set('state', form.state);
+      formData.set('postalCode', form.postalCode);
+      formData.set('price', form.price);
+      formData.set('beds', form.beds ?? '');
+      formData.set('baths', form.baths ?? '');
+      formData.set('squareFeet', form.squareFeet ?? '');
+      formData.set('publishNow', String(form.publishNow));
+      if (savedPricing) formData.set('selection', JSON.stringify(savedPricing));
+      formData.set('intakeAnswers', JSON.stringify(intake));
+      photos.forEach((file) => formData.append('photos', file, file.name));
+      documents.forEach((file) => formData.append('documents', file, file.name));
+      if (videoFile) formData.set('video', videoFile, videoFile.name);
 
       const response = await fetch('/api/properties/create', {
         method: 'POST',
         headers,
-        body: JSON.stringify({ ...form, selection: savedPricing }),
+        body: formData,
       });
       const data = await response.json();
       if (!response.ok || !data.ok) throw new Error(data.error || 'Failed to create listing');
@@ -101,13 +152,13 @@ export default function SellWizard() {
           <span className="badge">Sell your home</span>
           <h1 style={{ margin: '10px 0 6px' }}>Create your listing</h1>
           <p className="muted" style={{ maxWidth: 760 }}>
-            Get your public page live, start capturing leads, and manage everything from the Boardroom.
+            Get your public page live, start capturing leads, and manage everything from the Boardroom. During onboarding we run a listing interview to collect photos, video, documents, and the details that power strong marketing.
           </p>
         </div>
 
         <div className="card panel">
           <div className="row" style={{ justifyContent: 'space-between' }}>
-            <strong>Step {step} of 3</strong>
+            <strong>Step {step} of 4</strong>
             <div className="row">
               <button className="btn" type="button" onClick={() => setStep(1)} disabled={step === 1}>
                 Property
@@ -116,6 +167,9 @@ export default function SellWizard() {
                 Basics
               </button>
               <button className="btn" type="button" onClick={() => setStep(3)} disabled={step === 3}>
+                Interview
+              </button>
+              <button className="btn" type="button" onClick={() => setStep(4)} disabled={step === 4}>
                 Publish
               </button>
             </div>
@@ -194,6 +248,172 @@ export default function SellWizard() {
 
         {step === 3 && (
           <div className="card panel grid">
+            <h2 className="section-title">Listing interview (recommended)</h2>
+            <p className="muted" style={{ maxWidth: 860 }}>
+              This is your listing interview. You can skip anything for now, but the more you share here, the stronger your marketing platform becomes for the public listing page.
+            </p>
+
+            <div className="two-col">
+              <div className="card panel">
+                <h3 style={{ marginTop: 0 }}>Photos and video</h3>
+                <div className="field">
+                  <label>Property photos (optional)</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={(e) => setPhotos(Array.from(e.target.files ?? []))}
+                  />
+                  <div className="muted small" style={{ marginTop: 6 }}>
+                    {photos.length ? `${photos.length} photo(s) selected` : 'No photos selected yet.'}
+                  </div>
+                </div>
+
+                <div className="field">
+                  <label>Walkthrough video file (optional)</label>
+                  <input type="file" accept="video/*" onChange={(e) => setVideoFile((e.target.files?.[0] as File | undefined) ?? null)} />
+                  <div className="muted small" style={{ marginTop: 6 }}>
+                    {videoFile ? `Video selected: ${videoFile.name}` : 'No video file selected.'}
+                  </div>
+                </div>
+
+                <div className="field">
+                  <label>Or video link (optional)</label>
+                  <input
+                    value={intake.videoUrl}
+                    onChange={(e) => setIntake({ ...intake, videoUrl: e.target.value })}
+                    placeholder="YouTube, Vimeo, Dropbox link, etc."
+                  />
+                </div>
+              </div>
+
+              <div className="card panel">
+                <h3 style={{ marginTop: 0 }}>Documents</h3>
+                <div className="field">
+                  <label>Deed / tax records / surveys / HOA docs (optional)</label>
+                  <input type="file" multiple onChange={(e) => setDocuments(Array.from(e.target.files ?? []))} />
+                  <div className="muted small" style={{ marginTop: 6 }}>
+                    {documents.length ? `${documents.length} document(s) selected` : 'No documents selected yet.'}
+                  </div>
+                </div>
+
+                <div className="field">
+                  <label>Seller notes (optional)</label>
+                  <textarea
+                    rows={5}
+                    value={intake.ownerNotes}
+                    onChange={(e) => setIntake({ ...intake, ownerNotes: e.target.value })}
+                    placeholder="Anything you'd tell a listing agent in the first meeting: story of the home, upgrades, neighborhood, what buyers should notice, etc."
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="card panel">
+              <h3 style={{ marginTop: 0 }}>Quick questions (optional)</h3>
+              <div className="three-col">
+                <label className="option">
+                  <div className="row" style={{ justifyContent: 'space-between' }}>
+                    <span>Deed available?</span>
+                    <select value={intake.deedAvailable} onChange={(e) => setIntake({ ...intake, deedAvailable: e.target.value as IntakeAnswers['deedAvailable'] })}>
+                      <option value="unsure">Unsure</option>
+                      <option value="yes">Yes</option>
+                      <option value="no">No</option>
+                    </select>
+                  </div>
+                </label>
+                <label className="option">
+                  <div className="row" style={{ justifyContent: 'space-between' }}>
+                    <span>Tax record available?</span>
+                    <select value={intake.taxRecordAvailable} onChange={(e) => setIntake({ ...intake, taxRecordAvailable: e.target.value as IntakeAnswers['taxRecordAvailable'] })}>
+                      <option value="unsure">Unsure</option>
+                      <option value="yes">Yes</option>
+                      <option value="no">No</option>
+                    </select>
+                  </div>
+                </label>
+                <label className="option">
+                  <div className="row" style={{ justifyContent: 'space-between' }}>
+                    <span>HOA?</span>
+                    <select value={intake.hoa} onChange={(e) => setIntake({ ...intake, hoa: e.target.value as IntakeAnswers['hoa'] })}>
+                      <option value="unsure">Unsure</option>
+                      <option value="yes">Yes</option>
+                      <option value="no">No</option>
+                    </select>
+                  </div>
+                  {intake.hoa === 'yes' && (
+                    <div className="muted small" style={{ marginTop: 8 }}>
+                      <label>Monthly dues (optional)</label>
+                      <input value={intake.hoaMonthlyDues} onChange={(e) => setIntake({ ...intake, hoaMonthlyDues: e.target.value })} placeholder="$150" />
+                    </div>
+                  )}
+                </label>
+              </div>
+
+              <div className="two-col" style={{ marginTop: 10 }}>
+                <div className="field">
+                  <label>Key features buyers should notice (optional)</label>
+                  <textarea rows={4} value={intake.keyFeatures} onChange={(e) => setIntake({ ...intake, keyFeatures: e.target.value })} placeholder="Top 5 features, layout wins, location benefits, views, schools, etc." />
+                </div>
+                <div className="field">
+                  <label>Recent upgrades / improvements (optional)</label>
+                  <textarea rows={4} value={intake.recentUpgrades} onChange={(e) => setIntake({ ...intake, recentUpgrades: e.target.value })} placeholder="Roof, HVAC, kitchen, bathrooms, paint, flooring, landscaping, etc." />
+                </div>
+              </div>
+
+              <div className="two-col">
+                <label className="option">
+                  <div className="row" style={{ justifyContent: 'space-between' }}>
+                    <span>Disclosures ready?</span>
+                    <select value={intake.disclosuresReady} onChange={(e) => setIntake({ ...intake, disclosuresReady: e.target.value as IntakeAnswers['disclosuresReady'] })}>
+                      <option value="unsure">Unsure</option>
+                      <option value="yes">Yes</option>
+                      <option value="no">No</option>
+                    </select>
+                  </div>
+                </label>
+                <label className="option">
+                  <div className="row" style={{ justifyContent: 'space-between' }}>
+                    <span>Occupancy</span>
+                    <select value={intake.occupancy} onChange={(e) => setIntake({ ...intake, occupancy: e.target.value as IntakeAnswers['occupancy'] })}>
+                      <option value="unsure">Unsure</option>
+                      <option value="owner">Owner occupied</option>
+                      <option value="tenant">Tenant occupied</option>
+                      <option value="vacant">Vacant</option>
+                    </select>
+                  </div>
+                </label>
+              </div>
+
+              <div className="field">
+                <label>Preferred showing notes (optional)</label>
+                <input value={intake.preferredShowingNotes} onChange={(e) => setIntake({ ...intake, preferredShowingNotes: e.target.value })} placeholder="Notice needed, pets, lockbox, times to avoid, etc." />
+              </div>
+              <div className="field">
+                <label>Anything else (optional)</label>
+                <textarea rows={3} value={intake.anythingElse} onChange={(e) => setIntake({ ...intake, anythingElse: e.target.value })} placeholder="Any context that helps us market and sell better." />
+              </div>
+            </div>
+
+            <div className="row" style={{ justifyContent: 'space-between' }}>
+              <button className="btn" type="button" onClick={() => setStep(2)}>
+                Back
+              </button>
+              <div className="row">
+                <button className="btn" type="button" onClick={() => setStep(4)}>
+                  Skip for now
+                </button>
+                <button className="btn btn-primary" type="button" onClick={() => setStep(4)}>
+                  Continue
+                </button>
+              </div>
+            </div>
+            <p className="small muted">You can change or add to this later in The Boardroom during your trial.</p>
+          </div>
+        )}
+
+        {step === 4 && (
+          <div className="card panel grid">
             <h2 className="section-title">Publish</h2>
             <label className="option active">
               <div className="row" style={{ justifyContent: 'space-between' }}>
@@ -205,7 +425,7 @@ export default function SellWizard() {
               </div>
             </label>
             <div className="row" style={{ justifyContent: 'space-between' }}>
-              <button className="btn" type="button" onClick={() => setStep(2)}>
+              <button className="btn" type="button" onClick={() => setStep(3)}>
                 Back
               </button>
               <button className="btn btn-primary" type="button" onClick={createListing} disabled={submitting}>
