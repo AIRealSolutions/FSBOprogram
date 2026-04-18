@@ -4,7 +4,7 @@ export default function HomePage() {
   return (
     <main className="container grid">
       <div className="card hero-home">
-        <img className="hero-banner" src="/brand/fsboprogram-hero.png" alt="FSBOprogram.com - DIY · Hybrid · Full Service" />
+        <img className="hero-banner" src="/brand/fsboprogram-logo.png" alt="FSBOprogram.com - DIY · Hybrid · Full Service" />
         <h1 style={{ margin: '14px 0 8px', fontSize: 42 }}>Tool to sell your own home. An all-in-one Sales Engine.</h1>
         <p className="muted" style={{ maxWidth: 860 }}>
           Build a clean public listing page, capture leads, and manage your process from the Boardroom. Choose DIY, Hybrid, or Full Service and upgrade when you need it.
