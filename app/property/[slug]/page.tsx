@@ -115,9 +115,9 @@ export default async function PropertyPage({ params }: { params: { slug: string 
         <h1 style={{ marginBottom: 6 }}>{addressLine}</h1>
         <div className="row">
           <strong>{money(property.price_cents)}</strong>
-          <span>{property.beds ?? '—'} bed</span>
-          <span>{property.baths ?? '—'} bath</span>
-          <span>{property.square_feet ? `${property.square_feet.toLocaleString()} sqft` : '— sqft'}</span>
+          <span>{property.beds ?? '-'} bed</span>
+          <span>{property.baths ?? '-'} bath</span>
+          <span>{property.square_feet ? `${property.square_feet.toLocaleString()} sqft` : '- sqft'}</span>
         </div>
         <div className="row" style={{ marginTop: 14 }}>
           <a className="btn btn-primary" href="#inquiry">
@@ -146,15 +146,15 @@ export default async function PropertyPage({ params }: { params: { slug: string 
             <div className="three-col">
               <div>
                 <strong>Beds</strong>
-                <div className="muted">{property.beds ?? '—'}</div>
+                <div className="muted">{property.beds ?? '-'}</div>
               </div>
               <div>
                 <strong>Baths</strong>
-                <div className="muted">{property.baths ?? '—'}</div>
+                <div className="muted">{property.baths ?? '-'}</div>
               </div>
               <div>
                 <strong>Sqft</strong>
-                <div className="muted">{property.square_feet ? property.square_feet.toLocaleString() : '—'}</div>
+                <div className="muted">{property.square_feet ? property.square_feet.toLocaleString() : '-'}</div>
               </div>
             </div>
           </div>
@@ -173,4 +173,3 @@ export default async function PropertyPage({ params }: { params: { slug: string 
     </main>
   );
 }
-

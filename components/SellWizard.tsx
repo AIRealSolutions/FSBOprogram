@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 import { DIY_FEE_AFTER_TRIAL_CENTS, DIY_TRIAL_DAYS, type PricingSelection } from '@/lib/pricing';
 import { clearPricingSelection, loadPricingSelection } from '@/lib/pricingHandoff';
+import { useSearchParams } from 'next/navigation';
 
 type CreatePayload = {
   title: string;
@@ -42,10 +43,30 @@ function dollarsToCents(raw: string) {
 }
 
 export default function SellWizard() {
+  const searchParams = useSearchParams();
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedPricing, setSavedPricing] = useState<PricingSelection | null>(null);
+  const [mode, setMode] = useState<'create' | 'edit'>('create');
+  const [editingPropertyId, setEditingPropertyId] = useState<string | null>(null);
+  const [existingProperties, setExistingProperties] = useState<Array<{
+    id: string;
+    title: string;
+    slug: string;
+    status: string;
+    address_line_1: string;
+    address_line_2: string | null;
+    city: string;
+    state: string;
+    postal_code: string;
+    price_cents: number;
+    beds: number | null;
+    baths: number | null;
+    square_feet: number | null;
+    created_at: string;
+  }>>([]);
+  const [existingLoading, setExistingLoading] = useState(false);
   const [photos, setPhotos] = useState<File[]>([]);
   const [documents, setDocuments] = useState<File[]>([]);
   const [videoFile, setVideoFile] = useState<File | null>(null);
@@ -84,6 +105,57 @@ export default function SellWizard() {
     setSavedPricing(loadPricingSelection());
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadExisting() {
+      setExistingLoading(true);
+      try {
+        const supabase = getSupabaseBrowser();
+        const { data: sessionData } = await supabase.auth.getSession();
+        const user = sessionData.session?.user ?? null;
+        if (!user) return;
+
+        const { data, error: propertiesError } = await supabase
+          .from('properties')
+          .select('id, title, slug, status, address_line_1, address_line_2, city, state, postal_code, price_cents, beds, baths, square_feet, created_at')
+          .eq('owner_user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(10);
+        if (propertiesError) throw propertiesError;
+        if (!cancelled) setExistingProperties((data as any[]) ?? []);
+      } catch {
+        // Non-blocking: the wizard still works even if existing listings fail to load.
+      } finally {
+        if (!cancelled) setExistingLoading(false);
+      }
+    }
+
+    loadExisting();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    // Default behavior after login: if the seller already has a listing, resume/edit it instead of creating a new one.
+    // Exceptions:
+    // - `?new=1` forces create mode.
+    // - Coming from pricing (savedPricing exists) should stay in create mode for a new property.
+    if (existingLoading) return;
+    if (mode !== 'create') return;
+    if (editingPropertyId) return;
+    if (savedPricing) return;
+
+    const forceNew = searchParams?.get('new') === '1';
+    if (forceNew) return;
+
+    if (existingProperties.length > 0) {
+      loadForEdit(existingProperties[0]);
+      setStep(3); // jump into the listing interview by default
+    }
+  }, [existingLoading, existingProperties, mode, editingPropertyId, savedPricing, searchParams]);
+
   const savedPricingSummary = useMemo(() => {
     if (!savedPricing) return null;
     const tierLabel =
@@ -96,7 +168,57 @@ export default function SellWizard() {
     return { tierLabel, addOnsCount, buyerAgency: savedPricing.buyerAgencyPercent };
   }, [savedPricing]);
 
-  async function createListing() {
+  function centsToDollarsInput(cents: number) {
+    const dollars = cents / 100;
+    return dollars.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  }
+
+  function startNewListing() {
+    setMode('create');
+    setEditingPropertyId(null);
+    setForm({
+      title: '',
+      addressLine1: '',
+      addressLine2: '',
+      city: '',
+      state: 'NC',
+      postalCode: '',
+      price: '',
+      beds: '',
+      baths: '',
+      squareFeet: '',
+      publishNow: true,
+    });
+    setPhotos([]);
+    setDocuments([]);
+    setVideoFile(null);
+    setStep(1);
+  }
+
+  function loadForEdit(p: (typeof existingProperties)[number]) {
+    setMode('edit');
+    setEditingPropertyId(p.id);
+    setForm({
+      title: p.title ?? '',
+      addressLine1: p.address_line_1 ?? '',
+      addressLine2: p.address_line_2 ?? '',
+      city: p.city ?? '',
+      state: p.state ?? 'NC',
+      postalCode: p.postal_code ?? '',
+      price: centsToDollarsInput(p.price_cents ?? 0),
+      beds: p.beds === null ? '' : String(p.beds),
+      baths: p.baths === null ? '' : String(p.baths),
+      squareFeet: p.square_feet === null ? '' : String(p.square_feet),
+      publishNow: p.status === 'active',
+    });
+    // Intake uploads are additive; we don't auto-load existing files into file inputs.
+    setPhotos([]);
+    setDocuments([]);
+    setVideoFile(null);
+    setStep(1);
+  }
+
+  async function submitListing() {
     setError(null);
     setSubmitting(true);
     try {
@@ -127,7 +249,13 @@ export default function SellWizard() {
       documents.forEach((file) => formData.append('documents', file, file.name));
       if (videoFile) formData.set('video', videoFile, videoFile.name);
 
-      const response = await fetch('/api/properties/create', {
+      const endpoint = mode === 'edit' ? '/api/properties/update' : '/api/properties/create';
+      if (mode === 'edit') {
+        if (!editingPropertyId) throw new Error('Missing property id for edit mode');
+        formData.set('propertyId', editingPropertyId);
+      }
+
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers,
         body: formData,
@@ -136,8 +264,10 @@ export default function SellWizard() {
       if (!response.ok || !data.ok) throw new Error(data.error || 'Failed to create listing');
 
       // Pricing is now applied; clear it so it doesn't bleed into the next listing.
-      clearPricingSelection();
-      window.location.href = `/boardroom/${data.property.id}`;
+      if (mode === 'create') clearPricingSelection();
+      const propertyId = data.property?.id ?? data.propertyId ?? editingPropertyId;
+      if (!propertyId) throw new Error('Missing property id in response');
+      window.location.href = `/boardroom/${propertyId}`;
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong');
     } finally {
@@ -150,11 +280,59 @@ export default function SellWizard() {
       <div className="grid">
         <div className="card panel">
           <span className="badge">Sell your home</span>
-          <h1 style={{ margin: '10px 0 6px' }}>Create your listing</h1>
+          <h1 style={{ margin: '10px 0 6px' }}>{mode === 'edit' ? 'Update your listing' : 'Create your listing'}</h1>
           <p className="muted" style={{ maxWidth: 760 }}>
             Get your public page live, start capturing leads, and manage everything from the Boardroom. During onboarding we run a listing interview to collect photos, video, documents, and the details that power strong marketing.
           </p>
         </div>
+
+        {existingLoading && (
+          <div className="card panel">
+            <span className="badge">Your listings</span>
+            <p className="muted">Loading your properties...</p>
+          </div>
+        )}
+
+        {!existingLoading && existingProperties.length > 0 && (
+          <div className="card panel">
+            <div className="row" style={{ justifyContent: 'space-between' }}>
+              <div>
+                <span className="badge">Your listings</span>
+                <h2 className="section-title" style={{ marginTop: 10 }}>Continue a listing interview</h2>
+                <p className="muted small" style={{ marginTop: 6 }}>Pick a property to edit, upload media, and update your listing details.</p>
+              </div>
+              <button className="btn" type="button" onClick={startNewListing}>
+                Create new
+              </button>
+            </div>
+
+            <div className="grid" style={{ gap: 10, marginTop: 10 }}>
+              {existingProperties.slice(0, 5).map((p) => (
+                <div key={p.id} className={`option ${editingPropertyId === p.id ? 'active' : ''}`}>
+                  <div className="row" style={{ justifyContent: 'space-between', alignItems: 'start' }}>
+                    <div>
+                      <strong>{p.title}</strong>
+                      <div className="muted small" style={{ marginTop: 6 }}>
+                        {p.address_line_1}{p.address_line_2 ? `, ${p.address_line_2}` : ''}, {p.city}, {p.state} {p.postal_code} | ${Math.round(p.price_cents / 100).toLocaleString()} | {p.status}
+                      </div>
+                    </div>
+                    <div className="row">
+                      <button className="btn" type="button" onClick={() => window.location.href = `/boardroom/${p.id}`}>
+                        Boardroom
+                      </button>
+                      <button className="btn btn-primary" type="button" onClick={() => loadForEdit(p)}>
+                        Edit
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="small muted" style={{ marginTop: 10 }}>
+              Editing a listing keeps it tied to your account as the owner. You can always change plan options from the Boardroom pricing builder.
+            </p>
+          </div>
+        )}
 
         <div className="card panel">
           <div className="row" style={{ justifyContent: 'space-between' }}>
@@ -428,8 +606,8 @@ export default function SellWizard() {
               <button className="btn" type="button" onClick={() => setStep(3)}>
                 Back
               </button>
-              <button className="btn btn-primary" type="button" onClick={createListing} disabled={submitting}>
-                {submitting ? 'Creating...' : 'Create listing'}
+              <button className="btn btn-primary" type="button" onClick={submitListing} disabled={submitting}>
+                {submitting ? (mode === 'edit' ? 'Saving...' : 'Creating...') : (mode === 'edit' ? 'Save updates' : 'Create listing')}
               </button>
             </div>
             {error && <p className="small">{error}</p>}
