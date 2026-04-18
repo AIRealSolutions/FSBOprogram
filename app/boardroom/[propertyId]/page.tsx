@@ -99,7 +99,7 @@ export default function BoardroomPage({ params }: { params: { propertyId: string
         }
 
         const role = profile?.role ?? 'buyer';
-        const allowed = role === 'broker_admin' || propertyRow.owner_user_id === user.id || propertyRow.assigned_broker_user_id === user.id;
+        const allowed = role === 'broker_admin' || role === 'super_admin' || propertyRow.owner_user_id === user.id || propertyRow.assigned_broker_user_id === user.id;
         if (!allowed) {
           setForbidden(true);
           return;

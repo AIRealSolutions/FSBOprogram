@@ -5,7 +5,7 @@ import { requireBoardroomActor } from '@/lib/boardroomAuthz';
 export async function GET(req: NextRequest) {
   try {
     const actor = await requireBoardroomActor(req);
-    if (actor.role !== 'broker_admin') {
+    if (actor.role !== 'broker_admin' && actor.role !== 'super_admin') {
       return NextResponse.json({ ok: false, error: 'Forbidden' }, { status: 403 });
     }
 
@@ -44,4 +44,3 @@ export async function GET(req: NextRequest) {
     );
   }
 }
-

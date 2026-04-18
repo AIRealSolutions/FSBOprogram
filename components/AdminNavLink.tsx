@@ -6,6 +6,7 @@ import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 
 export default function AdminNavLink() {
   const [allowed, setAllowed] = useState(false);
+  const [isSuper, setIsSuper] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -18,7 +19,9 @@ export default function AdminNavLink() {
         if (!user) return;
         const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
         if (cancelled) return;
-        setAllowed((profile?.role ?? '') === 'broker_admin');
+        const role = profile?.role ?? '';
+        setAllowed(role === 'broker_admin' || role === 'super_admin');
+        setIsSuper(role === 'super_admin');
       } catch {
         // ignore
       }
@@ -33,9 +36,15 @@ export default function AdminNavLink() {
   if (!allowed) return null;
 
   return (
-    <Link className="nav-link" href="/admin">
-      Admin
-    </Link>
+    <>
+      <Link className="nav-link" href="/admin">
+        Admin
+      </Link>
+      {isSuper && (
+        <Link className="nav-link" href="/superadmin/users">
+          Super
+        </Link>
+      )}
+    </>
   );
 }
-

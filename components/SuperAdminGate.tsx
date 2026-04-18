@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 
-export default function AdminGate({ children }: { children: React.ReactNode }) {
+export default function SuperAdminGate({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
   const [allowed, setAllowed] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -26,12 +26,11 @@ export default function AdminGate({ children }: { children: React.ReactNode }) {
         if (profileError) throw profileError;
 
         if (cancelled) return;
-        const role = profile?.role ?? 'buyer';
-        setAllowed(role === 'broker_admin' || role === 'super_admin');
+        setAllowed((profile?.role ?? '') === 'super_admin');
         setReady(true);
       } catch (e) {
         if (!cancelled) {
-          setError(e instanceof Error ? e.message : 'Failed to check admin access');
+          setError(e instanceof Error ? e.message : 'Failed to check super admin access');
           setReady(true);
         }
       }
@@ -47,7 +46,7 @@ export default function AdminGate({ children }: { children: React.ReactNode }) {
     return (
       <main className="container grid">
         <div className="card panel">
-          <span className="badge">Admin</span>
+          <span className="badge">Super Admin</span>
           <h1 style={{ margin: '10px 0 6px' }}>Loading...</h1>
           <p className="muted">Checking access.</p>
         </div>
@@ -59,7 +58,7 @@ export default function AdminGate({ children }: { children: React.ReactNode }) {
     return (
       <main className="container grid">
         <div className="card panel">
-          <span className="badge">Admin</span>
+          <span className="badge">Super Admin</span>
           <h1 style={{ margin: '10px 0 6px' }}>Couldn't load</h1>
           <p className="muted">{error}</p>
         </div>
@@ -71,9 +70,9 @@ export default function AdminGate({ children }: { children: React.ReactNode }) {
     return (
       <main className="container grid">
         <div className="card panel">
-          <span className="badge">Admin</span>
+          <span className="badge">Super Admin</span>
           <h1 style={{ margin: '10px 0 6px' }}>Access denied</h1>
-          <p className="muted">Your account is signed in, but it is not marked as a broker admin.</p>
+          <p className="muted">Your account is signed in, but it is not marked as a super admin.</p>
         </div>
       </main>
     );
@@ -81,3 +80,4 @@ export default function AdminGate({ children }: { children: React.ReactNode }) {
 
   return <>{children}</>;
 }
+

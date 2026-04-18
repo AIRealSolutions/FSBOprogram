@@ -4,7 +4,22 @@ create extension if not exists pgcrypto;
 do $$ 
 begin
   if not exists (select 1 from pg_type t join pg_namespace n on n.oid = t.typnamespace where t.typname = 'app_role' and n.nspname = 'public') then
-    create type public.app_role as enum ('buyer', 'seller', 'broker_admin', 'connected_agent');
+    create type public.app_role as enum ('buyer', 'seller', 'broker_admin', 'connected_agent', 'super_admin', 'broker', 'associate');
+  end if;
+  -- If the enum already exists, add new values idempotently.
+  if exists (select 1 from pg_type t join pg_namespace n on n.oid = t.typnamespace where t.typname = 'app_role' and n.nspname = 'public') then
+    begin
+      alter type public.app_role add value if not exists 'super_admin';
+    exception when duplicate_object then null;
+    end;
+    begin
+      alter type public.app_role add value if not exists 'broker';
+    exception when duplicate_object then null;
+    end;
+    begin
+      alter type public.app_role add value if not exists 'associate';
+    exception when duplicate_object then null;
+    end;
   end if;
   if not exists (select 1 from pg_type t join pg_namespace n on n.oid = t.typnamespace where t.typname = 'property_status' and n.nspname = 'public') then
     create type public.property_status as enum ('draft', 'pending_review', 'active', 'under_contract', 'sold', 'expired', 'archived');
@@ -42,9 +57,52 @@ create table if not exists public.profiles (
   full_name text,
   phone text,
   brokerage_name text,
+  -- future: formal brokerage relationships (managed by super_admin)
+  brokerage_id uuid,
+  branch_id uuid,
+  managing_broker_user_id uuid references public.profiles(id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- brokerages (future-ready)
+create table if not exists public.brokerages (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  legal_name text,
+  website text,
+  phone text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.brokerage_branches (
+  id uuid primary key default gen_random_uuid(),
+  brokerage_id uuid not null references public.brokerages(id) on delete cascade,
+  name text not null,
+  address_line_1 text,
+  address_line_2 text,
+  city text,
+  state text,
+  postal_code text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists brokerage_branches_brokerage_idx on public.brokerage_branches(brokerage_id);
+
+create table if not exists public.brokerage_memberships (
+  id uuid primary key default gen_random_uuid(),
+  brokerage_id uuid not null references public.brokerages(id) on delete cascade,
+  branch_id uuid references public.brokerage_branches(id) on delete set null,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  member_role text not null check (member_role in ('managing_broker','broker','associate','staff')),
+  status text not null default 'active' check (status in ('active','invited','suspended','archived')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (brokerage_id, user_id)
+);
+create index if not exists brokerage_memberships_user_idx on public.brokerage_memberships(user_id);
+create index if not exists brokerage_memberships_brokerage_idx on public.brokerage_memberships(brokerage_id);
 
 -- properties
 create table if not exists public.properties (
@@ -412,6 +470,7 @@ as $$
         p.owner_user_id = auth.uid()
         or p.assigned_broker_user_id = auth.uid()
         or public.current_profile_role() = 'broker_admin'
+        or public.current_profile_role() = 'super_admin'
       )
   )
 $$;

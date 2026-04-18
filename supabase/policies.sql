@@ -23,10 +23,10 @@ alter table public.public_property_feeds enable row level security;
 
 -- profiles
 create policy "profiles self read" on public.profiles
-for select using (id = auth.uid() or public.current_profile_role() = 'broker_admin');
+for select using (id = auth.uid() or public.current_profile_role() in ('broker_admin','super_admin'));
 
 create policy "profiles self update" on public.profiles
-for update using (id = auth.uid() or public.current_profile_role() = 'broker_admin');
+for update using (id = auth.uid() or public.current_profile_role() in ('broker_admin','super_admin'));
 
 -- public property reads
 create policy "public active properties read" on public.properties
@@ -130,22 +130,22 @@ for all using (public.can_manage_property(property_id))
 with check (public.can_manage_property(property_id));
 
 create policy "owners manage connected agents" on public.connected_agents
-for all using (owner_user_id = auth.uid() or public.current_profile_role() = 'broker_admin')
-with check (owner_user_id = auth.uid() or public.current_profile_role() = 'broker_admin');
+for all using (owner_user_id = auth.uid() or public.current_profile_role() in ('broker_admin','super_admin'))
+with check (owner_user_id = auth.uid() or public.current_profile_role() in ('broker_admin','super_admin'));
 
 create policy "owners brokers agent permissions manage" on public.agent_permissions
 for all using (
-  public.current_profile_role() = 'broker_admin'
+  public.current_profile_role() in ('broker_admin','super_admin')
   or exists (select 1 from public.properties p where p.id = agent_permissions.property_id and p.owner_user_id = auth.uid())
 )
 with check (
-  public.current_profile_role() = 'broker_admin'
+  public.current_profile_role() in ('broker_admin','super_admin')
   or exists (select 1 from public.properties p where p.id = agent_permissions.property_id and p.owner_user_id = auth.uid())
 );
 
 create policy "owners brokers agent logs read" on public.agent_activity_logs
 for select using (
-  public.current_profile_role() = 'broker_admin'
+  public.current_profile_role() in ('broker_admin','super_admin')
   or exists (select 1 from public.properties p where p.id = agent_activity_logs.property_id and p.owner_user_id = auth.uid())
 );
 

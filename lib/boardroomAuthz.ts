@@ -29,7 +29,7 @@ export async function requireCanManageProperty(req: Request, propertyId: string)
   const actor = await requireBoardroomActor(req);
   const supabase = getSupabaseAdmin();
 
-  if (actor.role === 'broker_admin') return actor;
+  if (actor.role === 'broker_admin' || actor.role === 'super_admin') return actor;
 
   const { data: property, error: propertyError } = await supabase
     .from('properties')
@@ -52,4 +52,3 @@ export async function requireCanManageProperty(req: Request, propertyId: string)
 
   return actor;
 }
-
