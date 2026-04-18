@@ -32,7 +32,7 @@ function TierCard({
   );
 }
 
-export default function PricingBuilder({ propertyId = 'demo-property-id' }: { propertyId?: string }) {
+export default function PricingBuilder({ propertyId }: { propertyId?: string }) {
   const [selection, setSelection] = useState<PricingSelection>({
     tier: 'diy',
     buyerAgencyPercent: 0,
@@ -57,6 +57,12 @@ export default function PricingBuilder({ propertyId = 'demo-property-id' }: { pr
 
   async function onSave() {
     try {
+      if (!propertyId) {
+        setSaveState('error');
+        setSaveMessage('To save, open pricing from a specific property in your Boardroom.');
+        return;
+      }
+
       setSaveState('saving');
       setSaveMessage('Saving strategy...');
       const supabase = getSupabaseBrowser();
@@ -83,6 +89,15 @@ export default function PricingBuilder({ propertyId = 'demo-property-id' }: { pr
   return (
     <div className="two-col">
       <div className="grid">
+        {!propertyId && (
+          <div className="card panel">
+            <span className="badge">Preview mode</span>
+            <p className="muted small" style={{ margin: '10px 0 0' }}>
+              You can explore pricing here, but saving requires a specific property. Create a listing, then open Pricing from your Boardroom.
+            </p>
+          </div>
+        )}
+
         <div className="card panel">
           <h2 className="section-title">Choose your listing path</h2>
           <div className="grid">
@@ -252,7 +267,9 @@ export default function PricingBuilder({ propertyId = 'demo-property-id' }: { pr
               ))}
             </ul>
           </div>
-          <button className="btn btn-primary" onClick={onSave} disabled={saveState === 'saving'}>{saveState === 'saving' ? 'Saving...' : 'Save strategy'}</button>
+          <button className="btn btn-primary" onClick={onSave} disabled={saveState === 'saving' || !propertyId}>
+            {saveState === 'saving' ? 'Saving...' : !propertyId ? 'Save (Boardroom only)' : 'Save strategy'}
+          </button>
           {saveMessage && <p className={`small ${saveState === 'error' ? '' : 'muted'}`}>{saveMessage}</p>}
         </div>
       </div>

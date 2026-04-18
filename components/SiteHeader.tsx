@@ -13,7 +13,7 @@ export default function SiteHeader() {
           <Link className="nav-link" href="/sell">
             Sell your home
           </Link>
-          <Link className="nav-link" href="/boardroom/pricing">
+          <Link className="nav-link" href="/pricing">
             Pricing
           </Link>
           <AuthButton />
