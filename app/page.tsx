@@ -4,13 +4,13 @@ export default function HomePage() {
   return (
     <main className="container grid">
       <div className="card hero-home">
-        {/* Hero image stays the same; copy below is the upgrade. */}
-        <img className="hero-banner" src="/brand/fsboprogram-logo.png" alt="FSBOprogram.com - DIY · Hybrid · Full Service" />
+        {/* Hero image stays the same. */}
+        <img className="hero-banner" src="/brand/fsboprogram-logo.png" alt="FSBOprogram.com - DIY / Hybrid / Full Service" />
 
         <h1 style={{ margin: '14px 0 8px', fontSize: 42 }}>Turn your home into a lead engine.</h1>
-        <p className="muted" style={{ maxWidth: 920 }}>
-          Launch a clean, conversion-focused listing page, capture every inquiry, and run your sale from one place. Start DIY, go Hybrid for MLS + protected closing, or upgrade
-          to full service when you want the team behind you.
+        <p className="muted" style={{ maxWidth: 980 }}>
+          Launch a clean, conversion-focused listing page, capture every inquiry, and run your sale from one place. Add AI-generated marketing, social media support, and scheduling as
+          your listing heats up. Start DIY, go Hybrid for MLS + protected closing, or upgrade to full service when you want the team behind you.
         </p>
 
         <div className="three-col" style={{ marginTop: 10 }}>
@@ -19,12 +19,12 @@ export default function HomePage() {
             <div className="muted small">A premium-looking listing page that works on mobile.</div>
           </div>
           <div className="option">
-            <strong>Capture demand</strong>
-            <div className="muted small">Built-in lead capture so you stop losing buyers in the shuffle.</div>
+            <strong>AI marketing + social (Coming next)</strong>
+            <div className="muted small">Draft headlines, descriptions, ad copy, and social posts in minutes.</div>
           </div>
           <div className="option">
-            <strong>Scale the support</strong>
-            <div className="muted small">DIY → Hybrid → Full service as your timeline and offers change.</div>
+            <strong>Scheduling + sales tools (Coming next)</strong>
+            <div className="muted small">Showings, follow-up, and seller tools that keep the deal moving.</div>
           </div>
         </div>
 
@@ -96,6 +96,18 @@ export default function HomePage() {
             <li>Protected closing services (Hybrid)</li>
             <li>Professional photos + drone packages</li>
             <li>Yard sign + QR rider + info box</li>
+            <li>
+              <strong>AI-Generated Marketing</strong> (Coming next): listing descriptions, headlines, ad copy
+            </li>
+            <li>
+              <strong>Social Media</strong> (Coming next): post drafts, approvals, and launch-ready content
+            </li>
+            <li>
+              <strong>Scheduling Service</strong> (Coming next): showing requests, confirmations, and reminders
+            </li>
+            <li>
+              <strong>Sales Tools</strong> (Coming next): calculators, scripts, and buyer follow-up helpers
+            </li>
             <li>
               <strong>Punch List Repairs</strong>
             </li>
