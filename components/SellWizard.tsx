@@ -314,18 +314,22 @@ export default function SellWizard() {
         const bucket = signedData.bucket as string;
         const uploads = (signedData.uploads ?? []) as Array<{ kind: string; token: string; path: string; originalName: string }>;
 
-        // Upload intake.json first
+        // Upload intake.json first (overwrite allowed; the seller may run the interview multiple times).
         const intakeUpload = uploads.find((u) => u.kind === 'intake');
         if (intakeUpload) {
           const payload = new Blob([JSON.stringify({ ...intake, uploaded_at: new Date().toISOString() }, null, 2)], { type: 'application/json' });
-          const { error: intakeError } = await supabase.storage.from(bucket).uploadToSignedUrl(intakeUpload.path, intakeUpload.token, payload);
+          const { error: intakeError } = await supabase.storage
+            .from(bucket)
+            .uploadToSignedUrl(intakeUpload.path, intakeUpload.token, payload, { contentType: 'application/json', upsert: true });
           if (intakeError) throw new Error(`Intake upload failed: ${intakeError.message}`);
         }
 
         async function uploadFile(kind: 'photos' | 'documents' | 'video', file: File) {
           const match = uploads.find((u) => u.kind === kind && u.originalName === file.name);
           if (!match) throw new Error(`Missing signed upload for ${kind}/${file.name}`);
-          const { error: upErr } = await supabase.storage.from(bucket).uploadToSignedUrl(match.path, match.token, file, { contentType: file.type || undefined });
+          const { error: upErr } = await supabase.storage
+            .from(bucket)
+            .uploadToSignedUrl(match.path, match.token, file, { contentType: file.type || undefined, upsert: true });
           if (upErr) throw new Error(`${kind} upload failed (${file.name}): ${upErr.message}`);
         }
 

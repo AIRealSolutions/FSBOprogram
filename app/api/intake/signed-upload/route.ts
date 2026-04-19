@@ -39,7 +39,8 @@ export async function POST(req: NextRequest) {
       const name = safeName(f.name);
       const isIntake = kind === 'intake';
       const prefix = isIntake ? '' : `${kind}/`;
-      const filename = isIntake ? 'intake.json' : `${Date.now()}-${name}`;
+      const nonce = globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : Math.random().toString(36).slice(2);
+      const filename = isIntake ? 'intake.json' : `${Date.now()}-${nonce}-${name}`;
       const path = `${propertyId}/${prefix}${filename}`;
 
       const { data, error } = await supabase.storage.from(bucket).createSignedUploadUrl(path);
@@ -56,4 +57,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : 'Unknown error' }, { status });
   }
 }
-
