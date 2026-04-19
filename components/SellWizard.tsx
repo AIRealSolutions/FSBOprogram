@@ -47,6 +47,7 @@ export default function SellWizard() {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [createdPropertyId, setCreatedPropertyId] = useState<string | null>(null);
   const [savedPricing, setSavedPricing] = useState<PricingSelection | null>(null);
   const [mode, setMode] = useState<'create' | 'edit'>('create');
   const [editingPropertyId, setEditingPropertyId] = useState<string | null>(null);
@@ -221,6 +222,7 @@ export default function SellWizard() {
   async function submitListing() {
     setError(null);
     setSubmitting(true);
+    setCreatedPropertyId(null);
     try {
       // Forward the access token so the server can attach the real owner_user_id.
       const supabase = getSupabaseBrowser();
@@ -266,10 +268,24 @@ export default function SellWizard() {
       if (mode === 'create') clearPricingSelection();
       const propertyId = data.property?.id ?? data.propertyId ?? editingPropertyId;
       if (!propertyId) throw new Error('Missing property id in response');
+      setCreatedPropertyId(propertyId);
 
       // Direct-to-storage uploads (signed) to avoid Vercel request size limits.
-      const hasUploads = photos.length > 0 || documents.length > 0 || !!videoFile || !!intake;
-      if (hasUploads) {
+      const hasFiles = photos.length > 0 || documents.length > 0 || !!videoFile;
+      const hasInterviewNotes =
+        !!(intake.videoUrl || '').trim() ||
+        !!(intake.ownerNotes || '').trim() ||
+        !!(intake.keyFeatures || '').trim() ||
+        !!(intake.recentUpgrades || '').trim() ||
+        !!(intake.preferredShowingNotes || '').trim() ||
+        !!(intake.anythingElse || '').trim() ||
+        intake.deedAvailable !== 'unsure' ||
+        intake.taxRecordAvailable !== 'unsure' ||
+        intake.hoa !== 'unsure' ||
+        intake.occupancy !== 'unsure' ||
+        intake.disclosuresReady !== 'unsure';
+
+      if (hasFiles || hasInterviewNotes) {
         const uploadHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
         if (accessToken) uploadHeaders.authorization = `Bearer ${accessToken}`;
 
@@ -277,7 +293,7 @@ export default function SellWizard() {
         photos.forEach((f) => fileDescriptors.push({ kind: 'photos', name: f.name, contentType: f.type }));
         documents.forEach((f) => fileDescriptors.push({ kind: 'documents', name: f.name, contentType: f.type }));
         if (videoFile) fileDescriptors.push({ kind: 'video', name: videoFile.name, contentType: videoFile.type });
-        // Always upload the interview answer sheet if we have any interview context (it can be empty, that's fine).
+        // Upload the interview answer sheet whenever we have interview context or files.
         fileDescriptors.push({ kind: 'intake', name: 'intake.json', contentType: 'application/json' });
 
         const signedRes = await fetch('/api/intake/signed-upload', {
@@ -320,7 +336,12 @@ export default function SellWizard() {
 
       window.location.href = `/boardroom/${propertyId}`;
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Something went wrong');
+      const message = e instanceof Error ? e.message : 'Something went wrong';
+      if (createdPropertyId) {
+        setError(`Listing saved (property created), but upload failed: ${message}`);
+      } else {
+        setError(message);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -661,7 +682,19 @@ export default function SellWizard() {
                 {submitting ? (mode === 'edit' ? 'Saving...' : 'Creating...') : (mode === 'edit' ? 'Save updates' : 'Create listing')}
               </button>
             </div>
-            {error && <p className="small">{error}</p>}
+            {error && (
+              <div className="option" style={{ marginTop: 10 }}>
+                <strong>Issue</strong>
+                <p className="small muted" style={{ marginTop: 6 }}>{error}</p>
+                {createdPropertyId && (
+                  <div className="row" style={{ marginTop: 10 }}>
+                    <button className="btn btn-primary" type="button" onClick={() => (window.location.href = `/boardroom/${createdPropertyId}`)}>
+                      Go to Boardroom
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
