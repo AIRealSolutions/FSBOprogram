@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import LeadCaptureForm from '@/components/LeadCaptureForm';
 import { getPropertyBySlug } from '@/lib/properties';
+import { listPropertyPhotos } from '@/lib/propertyStorageMedia';
 
 function money(cents: number) {
   return `$${(cents / 100).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
@@ -107,12 +108,22 @@ export default async function PropertyPage({ params }: { params: { slug: string 
   if (!['active', 'under_contract', 'sold'].includes(property.status)) return notFound();
 
   const addressLine = `${property.address_line_1}${property.address_line_2 ? `, ${property.address_line_2}` : ''}, ${property.city}, ${property.state} ${property.postal_code}`;
+  const photos = await listPropertyPhotos(property.id).catch(() => []);
 
   return (
     <main className="container grid">
       <div className="hero card">
         <span className="badge">Listing</span>
         <h1 style={{ marginBottom: 6 }}>{addressLine}</h1>
+        {photos.length > 0 && (
+          <div style={{ marginTop: 14 }}>
+            <img
+              src={photos[0].url}
+              alt={property.headline || property.title}
+              style={{ width: '100%', maxHeight: 420, objectFit: 'cover', borderRadius: 14, border: '1px solid rgba(0,0,0,.08)' }}
+            />
+          </div>
+        )}
         <div className="row">
           <strong>{money(property.price_cents)}</strong>
           <span>{property.beds ?? '-'} bed</span>
@@ -131,6 +142,23 @@ export default async function PropertyPage({ params }: { params: { slug: string 
 
       <div className="two-col">
         <div className="grid">
+          {photos.length > 1 && (
+            <div className="card panel">
+              <h2 className="section-title">Photos</h2>
+              <div className="three-col" style={{ gap: 10 }}>
+                {photos.slice(0, 9).map((p) => (
+                  <img
+                    key={p.path}
+                    src={p.url}
+                    alt={property.headline || property.title}
+                    style={{ width: '100%', height: 140, objectFit: 'cover', borderRadius: 12, border: '1px solid rgba(0,0,0,.08)' }}
+                  />
+                ))}
+              </div>
+              {photos.length > 9 && <p className="muted small" style={{ marginTop: 10 }}>Showing 9 of {photos.length} photos.</p>}
+            </div>
+          )}
+
           <div className="card panel">
             <h2 className="section-title">Headline</h2>
             <p className="muted">{property.headline || property.title}</p>

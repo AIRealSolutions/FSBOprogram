@@ -33,6 +33,7 @@ type Term = {
 };
 
 type Lead = { id: string; name: string; message: string | null; status: string; created_at: string };
+type MediaItem = { path: string; url: string; name: string };
 
 function money(cents: number) {
   return `$${(cents / 100).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
@@ -45,6 +46,7 @@ export default function BoardroomPage({ params }: { params: { propertyId: string
   const [property, setProperty] = useState<Property | null>(null);
   const [term, setTerm] = useState<Term | null>(null);
   const [recentLeads, setRecentLeads] = useState<Lead[]>([]);
+  const [photos, setPhotos] = useState<MediaItem[]>([]);
 
   const publicUrl = useMemo(() => (property ? `/property/${property.slug}` : '#'), [property]);
   const addressLine = useMemo(() => {
@@ -127,6 +129,20 @@ export default function BoardroomPage({ params }: { params: { propertyId: string
           .limit(6);
         if (leadsError) throw leadsError;
         if (!cancelled) setRecentLeads((leadsRows as Lead[]) ?? []);
+
+        // Storage-backed media (signed URLs). This is Boardroom-only.
+        try {
+          const headers: Record<string, string> = {};
+          const accessToken = sessionData.session?.access_token ?? null;
+          if (accessToken) headers.authorization = `Bearer ${accessToken}`;
+          const res = await fetch(`/api/boardroom/media?propertyId=${encodeURIComponent(params.propertyId)}`, { headers });
+          const payload = await res.json().catch(() => null);
+          if (res.ok && payload?.ok) {
+            if (!cancelled) setPhotos((payload.photos ?? []) as MediaItem[]);
+          }
+        } catch {
+          // ignore
+        }
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load Boardroom');
       } finally {
@@ -259,6 +275,29 @@ export default function BoardroomPage({ params }: { params: { propertyId: string
             <h2 className="section-title">Marketing Wing</h2>
             <div className="row"><button className="btn" type="button">Edit property site</button><button className="btn" type="button">Approve social post</button><button className="btn" type="button">Request open house</button></div>
             <p className="muted small" style={{ marginTop: 10 }}>Seller controls creative approvals, featured photo order, ad approvals, and whether open house items appear publicly.</p>
+          </div>
+
+          <div className="card panel">
+            <h2 className="section-title">Media</h2>
+            {photos.length === 0 ? (
+              <p className="muted small">No photos uploaded yet. Add photos in the listing interview step in onboarding.</p>
+            ) : (
+              <>
+                <div className="three-col" style={{ gap: 10 }}>
+                  {photos.slice(0, 6).map((p) => (
+                    <img
+                      key={p.path}
+                      src={p.url}
+                      alt={property.title}
+                      style={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: 12, border: '1px solid rgba(0,0,0,.08)' }}
+                    />
+                  ))}
+                </div>
+                <p className="muted small" style={{ marginTop: 10 }}>
+                  {photos.length} photo(s) uploaded. The public listing page will show the first photo as the hero image.
+                </p>
+              </>
+            )}
           </div>
 
           <div className="card panel">
