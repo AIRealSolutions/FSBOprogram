@@ -227,46 +227,97 @@ export default function SellWizard() {
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData.session?.access_token ?? null;
 
-      const headers: Record<string, string> = {};
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (accessToken) headers.authorization = `Bearer ${accessToken}`;
 
-      // Use multipart so we can ship media/docs in the same request as listing creation.
-      const formData = new FormData();
-      formData.set('title', form.title);
-      formData.set('addressLine1', form.addressLine1);
-      formData.set('addressLine2', form.addressLine2 ?? '');
-      formData.set('city', form.city);
-      formData.set('state', form.state);
-      formData.set('postalCode', form.postalCode);
-      formData.set('price', form.price);
-      formData.set('beds', form.beds ?? '');
-      formData.set('baths', form.baths ?? '');
-      formData.set('squareFeet', form.squareFeet ?? '');
-      formData.set('publishNow', String(form.publishNow));
-      if (savedPricing) formData.set('selection', JSON.stringify(savedPricing));
-      formData.set('intakeAnswers', JSON.stringify(intake));
-      photos.forEach((file) => formData.append('photos', file, file.name));
-      documents.forEach((file) => formData.append('documents', file, file.name));
-      if (videoFile) formData.set('video', videoFile, videoFile.name);
-
       const endpoint = mode === 'edit' ? '/api/properties/update' : '/api/properties/create';
-      if (mode === 'edit') {
-        if (!editingPropertyId) throw new Error('Missing property id for edit mode');
-        formData.set('propertyId', editingPropertyId);
-      }
+      if (mode === 'edit' && !editingPropertyId) throw new Error('Missing property id for edit mode');
 
       const response = await fetch(endpoint, {
         method: 'POST',
         headers,
-        body: formData,
+        body: JSON.stringify({
+          ...(mode === 'edit' ? { propertyId: editingPropertyId } : {}),
+          title: form.title,
+          addressLine1: form.addressLine1,
+          addressLine2: form.addressLine2 ?? '',
+          city: form.city,
+          state: form.state,
+          postalCode: form.postalCode,
+          price: form.price,
+          beds: form.beds ?? '',
+          baths: form.baths ?? '',
+          squareFeet: form.squareFeet ?? '',
+          publishNow: form.publishNow,
+          selection: savedPricing ?? null,
+        }),
       });
-      const data = await response.json();
+
+      let data: any = null;
+      try {
+        data = await response.json();
+      } catch {
+        const text = await response.text().catch(() => '');
+        throw new Error(`Request failed (${response.status}). ${text.slice(0, 160) || 'Non-JSON response.'}`);
+      }
       if (!response.ok || !data.ok) throw new Error(data.error || 'Failed to create listing');
 
       // Pricing is now applied; clear it so it doesn't bleed into the next listing.
       if (mode === 'create') clearPricingSelection();
       const propertyId = data.property?.id ?? data.propertyId ?? editingPropertyId;
       if (!propertyId) throw new Error('Missing property id in response');
+
+      // Direct-to-storage uploads (signed) to avoid Vercel request size limits.
+      const hasUploads = photos.length > 0 || documents.length > 0 || !!videoFile || !!intake;
+      if (hasUploads) {
+        const uploadHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (accessToken) uploadHeaders.authorization = `Bearer ${accessToken}`;
+
+        const fileDescriptors: Array<{ kind: 'photos' | 'documents' | 'video' | 'intake'; name: string; contentType?: string }> = [];
+        photos.forEach((f) => fileDescriptors.push({ kind: 'photos', name: f.name, contentType: f.type }));
+        documents.forEach((f) => fileDescriptors.push({ kind: 'documents', name: f.name, contentType: f.type }));
+        if (videoFile) fileDescriptors.push({ kind: 'video', name: videoFile.name, contentType: videoFile.type });
+        // Always upload the interview answer sheet if we have any interview context (it can be empty, that's fine).
+        fileDescriptors.push({ kind: 'intake', name: 'intake.json', contentType: 'application/json' });
+
+        const signedRes = await fetch('/api/intake/signed-upload', {
+          method: 'POST',
+          headers: uploadHeaders,
+          body: JSON.stringify({ propertyId, files: fileDescriptors }),
+        });
+
+        let signedData: any = null;
+        try {
+          signedData = await signedRes.json();
+        } catch {
+          const text = await signedRes.text().catch(() => '');
+          throw new Error(`Upload init failed (${signedRes.status}). ${text.slice(0, 160) || 'Non-JSON response.'}`);
+        }
+        if (!signedRes.ok || !signedData.ok) throw new Error(signedData.error || 'Failed to initialize uploads');
+
+        const bucket = signedData.bucket as string;
+        const uploads = (signedData.uploads ?? []) as Array<{ kind: string; token: string; path: string; originalName: string }>;
+
+        // Upload intake.json first
+        const intakeUpload = uploads.find((u) => u.kind === 'intake');
+        if (intakeUpload) {
+          const payload = new Blob([JSON.stringify({ ...intake, uploaded_at: new Date().toISOString() }, null, 2)], { type: 'application/json' });
+          const { error: intakeError } = await supabase.storage.from(bucket).uploadToSignedUrl(intakeUpload.path, intakeUpload.token, payload);
+          if (intakeError) throw new Error(`Intake upload failed: ${intakeError.message}`);
+        }
+
+        async function uploadFile(kind: 'photos' | 'documents' | 'video', file: File) {
+          const match = uploads.find((u) => u.kind === kind && u.originalName === file.name);
+          if (!match) throw new Error(`Missing signed upload for ${kind}/${file.name}`);
+          const { error: upErr } = await supabase.storage.from(bucket).uploadToSignedUrl(match.path, match.token, file, { contentType: file.type || undefined });
+          if (upErr) throw new Error(`${kind} upload failed (${file.name}): ${upErr.message}`);
+        }
+
+        for (const f of photos) await uploadFile('photos', f);
+        for (const f of documents) await uploadFile('documents', f);
+        if (videoFile) await uploadFile('video', videoFile);
+      }
+
       window.location.href = `/boardroom/${propertyId}`;
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong');
