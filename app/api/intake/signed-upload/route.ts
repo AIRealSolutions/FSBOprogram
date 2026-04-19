@@ -43,6 +43,12 @@ export async function POST(req: NextRequest) {
       const filename = isIntake ? 'intake.json' : `${Date.now()}-${nonce}-${name}`;
       const path = `${propertyId}/${prefix}${filename}`;
 
+      // Supabase signed upload URLs are for "create". If the object already exists, the API can return
+      // "resource already exists". For intake.json we want overwrite semantics, so we remove first.
+      if (isIntake) {
+        await supabase.storage.from(bucket).remove([path]);
+      }
+
       const { data, error } = await supabase.storage.from(bucket).createSignedUploadUrl(path);
       if (error || !data) {
         return NextResponse.json({ ok: false, error: error?.message || 'Failed to create signed upload URL' }, { status: 500 });
